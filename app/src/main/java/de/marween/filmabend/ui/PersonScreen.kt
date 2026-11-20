@@ -49,11 +49,15 @@ fun PersonScreen(vm: AppViewModel, name: String, id: Int, back: () -> Unit, open
     LaunchedEffect(name, id) {
         loading = true
         coroutineScope {
-            val m = async { runCatching { People.movies(name) } }
+            val jw = async { runCatching { de.marween.filmabend.JW.personWorks(name) } }
             val s = async { runCatching { People.series(id) } }
-            val mr = m.await(); val sr = s.await()
+            val jr = jw.await(); val sr = s.await()
+            val all = jr.getOrDefault(emptyList())
+            val mr = if (all.isEmpty()) runCatching { People.movies(name) } else Result.success(all.filter { it.type == "movie" })
             movies = mr.getOrDefault(emptyList())
-            series = sr.getOrDefault(emptyList())
+            val jwShows = all.filter { it.type == "tv" }
+            val names = jwShows.map { de.marween.filmabend.normName(it.title) }.toSet()
+            series = jwShows + sr.getOrDefault(emptyList()).filter { de.marween.filmabend.normName(it.title) !in names }
             if (mr.isFailure && sr.isFailure) error = mr.exceptionOrNull()?.localizedMessage
         }
         loading = false
@@ -85,7 +89,7 @@ fun PersonScreen(vm: AppViewModel, name: String, id: Int, back: () -> Unit, open
                 else -> LazyColumn(contentPadding = PaddingValues(vertical = 8.dp)) {
                     item {
                         Text(
-                            "Filme: Apple iTunes · Serien: TVmaze",
+                            "Daten: JustWatch & TVmaze",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(horizontal = 16.dp)

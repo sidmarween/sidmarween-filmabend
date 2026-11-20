@@ -66,6 +66,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val titles = MutableStateFlow<List<Title>>(emptyList())
     val suggestions = MutableStateFlow<List<Suggestion>>(emptyList())
     val recs = MutableStateFlow(RecState())
+    val genreList = MutableStateFlow(RecState())
+    private var genreLoaded: String? = null
     val message = MutableStateFlow<String?>(null)
     val newMovies = MutableStateFlow(RecState())
     val newShows = MutableStateFlow(RecState())
@@ -142,7 +144,24 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
         hhRegs += ref.collection("suggestions").addSnapshotListener { q, e ->
             if (e != null) { retryHousehold(hid, e); return@addSnapshotListener }
-            if (q != null) suggestions.value = q.documents.mapNotNull { Suggestion.from(it) }.sortedByDescending { it.createdAt }
+            if (q != null) {
+                suggestions.value = q.documents.mapNotNull { Suggestion.from(it) }.sortedByDescending { it.createdAt }
+                // Sofort-Benachrichtigung, solange die App läuft (auch im Hintergrund)
+                val me = uid.value
+                val fresh = q.documents.filter { it.getString("to") == me && it.getBoolean("notified") == false && !it.metadata.hasPendingWrites() }
+                if (fresh.isNotEmpty()) {
+                    val list = fresh.mapNotNull { Suggestion.from(it) }
+                    val from = household.value?.nameOf(list.firstOrNull()?.from) ?: "Dein Schatz"
+                    val text = if (list.size == 1) "„${list[0].title}“" + (if (list[0].note.isNotBlank()) " – ${list[0].note}" else "")
+                    else list.joinToString(", ") { it.title }
+                    SuggestionWorker.notify(
+                        getApplication(),
+                        if (list.size == 1) "$from hat dir was vorgeschlagen 🍿" else "$from hat dir ${list.size} Vorschläge geschickt 🍿",
+                        text
+                    )
+                    db.runBatch { b -> fresh.forEach { b.update(it.reference, "notified", true) } }
+                }
+            }
         }
     }
 
@@ -404,14 +423,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     i.key in seenKeys || (i.type == "tv" && normName(i.title) in seenShowNames)
 
                 if (liked.isEmpty()) {
-                    val movieJob = async { runCatching { Catalog.charts("movie", null, 40) }.getOrDefault(emptyList()) }
-                    val tvJob = async { runCatching { Catalog.charts("tv", null, 40) }.getOrDefault(emptyList()) }
+                    val movieJob = async { runCatching { JW.popular("movie", first = 40) }.getOrNull()?.takeIf { it.isNotEmpty() } ?: runCatching { Catalog.charts("movie", null, 40) }.getOrDefault(emptyList()) }
+                    val tvJob = async { runCatching { JW.popular("tv", first = 40) }.getOrNull()?.takeIf { it.isNotEmpty() } ?: runCatching { Catalog.charts("tv", null, 40) }.getOrDefault(emptyList()) }
                     val lists: List<List<CatalogItem>> = listOf(movieJob.await(), tvJob.await())
                     val mixed = ArrayList<CatalogItem>()
                     for (i in 0 until lists.maxOf { it.size }) lists.forEach { l -> if (i < l.size) mixed += l[i] }
                     val items = mixed.filterNot { excluded(it) }.distinctBy { it.key }
                     if (items.isEmpty()) throw IllegalStateException("Filmdaten gerade nicht erreichbar. Bitte später nochmal.")
-                    recs.value = RecState(items = items.map { Rec(it, 0.0, "Gerade beliebt") }, fallback = true)
+                    recs.value = RecState(items = items.map { Rec(it, 0.0, "Gerade beliebt in Deutschland") }, fallback = true)
                     return@launch
                 }
 
@@ -420,7 +439,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     val g: String = e.key
                     val w: Double = e.value
                     jobs += async {
-                        val list: List<CatalogItem> = runCatching { Catalog.charts(type, g, 40) }.getOrDefault(emptyList())
+                        val list: List<CatalogItem> = runCatching { JW.byGenre(g, type, 40) }.getOrNull()?.takeIf { it.isNotEmpty() }
+                            ?: runCatching { Catalog.charts(type, g, 40) }.getOrDefault(emptyList())
                         Triple(g, w, list)
                     }
                 }
@@ -581,6 +601,26 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 TvState(items = ranked)
             } catch (e: Exception) {
                 TvState(error = e.localizedMessage ?: "Fernsehprogramm konnte nicht geladen werden")
+            }
+        }
+    }
+
+    /** Beliebte Filme & Serien eines Genres – zum Durchstöbern und Bewerten. */
+    fun loadGenre(genre: String, force: Boolean = false) {
+        if (!force && genreLoaded == genre && genreList.value.items.isNotEmpty()) return
+        genreLoaded = genre
+        genreList.value = RecState(loading = true)
+        viewModelScope.launch {
+            genreList.value = try {
+                val movies = async { runCatching { JW.byGenre(genre, "movie", 50) }.getOrDefault(emptyList()) }
+                val shows = async { runCatching { JW.byGenre(genre, "tv", 50) }.getOrDefault(emptyList()) }
+                val a = movies.await(); val b = shows.await()
+                val mixed = ArrayList<CatalogItem>()
+                for (i in 0 until maxOf(a.size, b.size)) { if (i < a.size) mixed += a[i]; if (i < b.size) mixed += b[i] }
+                if (mixed.isEmpty()) throw IllegalStateException("Gerade nicht erreichbar – bitte später nochmal.")
+                RecState(items = mixed.distinctBy { it.key }.map { Rec(it, 0.0, it.genres.take(3).joinToString(", ")) })
+            } catch (e: Exception) {
+                RecState(error = e.localizedMessage)
             }
         }
     }

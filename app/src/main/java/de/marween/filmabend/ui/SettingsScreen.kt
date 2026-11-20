@@ -49,7 +49,10 @@ private val changelog = listOf(
         "Neu: Seite „Neu & Trailer“ mit neuen Filmen (deutsche Trailer) und Serienstarts",
         "Trailer-Knopf auf jeder Film- und Serienseite",
         "Trailer: neueste deutsche Trailer von Netflix, Prime Video, Disney+, Paramount+, Sky, RTL+ & Kino",
-        "DVD & Blu-ray: Neuerscheinungen der letzten 8 Wochen",
+        "DVD & Blu-ray: Neuerscheinungen der letzten 8 Wochen – jetzt mit Cover",
+        "Sofort-Benachrichtigung bei neuen Vorschlägen",
+        "Filmdaten jetzt von JustWatch: deutsche Titel, Poster, Trailer und „Läuft bei“",
+        "Entdecken: nach Genre stöbern (Comedy, Thriller, Action …) und schnell bewerten",
         "📺 TV-Sendungen privater & öffentlich-rechtlicher Sender, sortiert nach eurem Geschmack",
         "🎭 Schauspieler-Suche: alle Filme & Serien einer Person",
         "Behoben: „nicht gefunden“ beim Senden/Merken – klappt jetzt mit jedem Titel",
@@ -111,6 +114,24 @@ fun SettingsScreen(vm: AppViewModel, back: () -> Unit) {
                     }) {
                         Icon(Icons.Filled.Share, null); Text("  Code teilen")
                     }
+                }
+            }
+            SectionCard {
+                Text("Benachrichtigungen", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "Wenn dein Partner dir etwas vorschlägt, kommt sofort eine Benachrichtigung – solange die App im Hintergrund läuft. " +
+                        "Ist sie ganz geschlossen, prüft sie alle ~15 Minuten. Damit Android das nicht blockiert, nimm die App aus der Akku-Optimierung heraus.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = {
+                        de.marween.filmabend.SuggestionWorker.notify(ctx, "So sieht ein Vorschlag aus 🍿", "„Testfilm“ – Das musst du sehen!")
+                    }) { Text("Test") }
+                    OutlinedButton(onClick = {
+                        runCatching {
+                            ctx.startActivity(Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+                        }
+                    }) { Text("Akku-Einstellungen") }
                 }
             }
             SectionCard {

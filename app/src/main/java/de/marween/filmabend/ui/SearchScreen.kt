@@ -48,6 +48,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import de.marween.filmabend.AppViewModel
 import de.marween.filmabend.Catalog
@@ -147,7 +148,7 @@ private fun PersonRow(image: String?, name: String, sub: String, onClick: () -> 
 
 /** Zeile für einen Treffer mit Schnell-Knöpfen „Gesehen“ und „Merken“. */
 @Composable
-fun ItemRow(vm: AppViewModel, item: CatalogItem, extra: String? = null, trailing: (@Composable () -> Unit)? = null, onClick: () -> Unit) {
+fun ItemRow(vm: AppViewModel, item: CatalogItem, extra: String? = null, trailing: (@Composable () -> Unit)? = null, quickRate: Boolean = false, onClick: () -> Unit) {
     val uid by vm.uid.collectAsStateWithLifecycle()
     val titles by vm.titles.collectAsStateWithLifecycle()
     val t = titles.firstOrNull { it.key == item.key }
@@ -155,8 +156,9 @@ fun ItemRow(vm: AppViewModel, item: CatalogItem, extra: String? = null, trailing
     val watched = t?.isWatched(uid) == true
     val listed = t?.onWatchlist(uid) == true
 
+    Column(Modifier.fillMaxWidth().clickable(onClick = onClick)) {
     Row(
-        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 8.dp),
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
@@ -182,5 +184,30 @@ fun ItemRow(vm: AppViewModel, item: CatalogItem, extra: String? = null, trailing
         }) {
             Icon(if (watched) Icons.Filled.CheckCircle else Icons.Filled.CheckCircleOutline, "Gesehen", tint = if (watched) Gold else MaterialTheme.colorScheme.onSurfaceVariant)
         }
+    }
+    if (quickRate) {
+        val mine = t?.rating(uid)
+        Row(
+            Modifier.fillMaxWidth().padding(start = 84.dp, end = 16.dp, bottom = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Schon gesehen?", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            listOf(2 to "😖", 4 to "😕", 6 to "😐", 8 to "🙂", 10 to "😍").forEach { (r, e) ->
+                val sel = mine != null && kotlin.math.abs(mine - r) <= 1
+                Text(
+                    e, fontSize = 22.sp,
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .background(if (sel) Gold.copy(alpha = 0.5f) else androidx.compose.ui.graphics.Color.Transparent)
+                        .clickable {
+                            if (t != null) vm.setRating(t.info, if (sel) null else r)
+                            else vm.withResolved(item) { vm.setRating(it.info, r) }
+                        }
+                        .padding(4.dp)
+                )
+            }
+        }
+    }
     }
 }

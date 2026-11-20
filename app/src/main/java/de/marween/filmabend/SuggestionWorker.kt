@@ -49,7 +49,7 @@ class SuggestionWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker
                 } else sugg.joinToString(", ") { it.title }
                 notify(
                     applicationContext,
-                    if (sugg.size == 1) "$fromName schlägt dir was vor 🍿" else "$fromName hat dir ${sugg.size} Vorschläge geschickt 🍿",
+                    if (sugg.size == 1) "$fromName hat dir was vorgeschlagen 🍿" else "$fromName hat dir ${sugg.size} Vorschläge geschickt 🍿",
                     text
                 )
                 FirebaseFirestore.getInstance().runBatch { b ->
@@ -63,7 +63,7 @@ class SuggestionWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker
     }
 
     companion object {
-        private const val CHANNEL = "vorschlaege"
+        private const val CHANNEL = "vorschlaege_neu"
 
         fun schedule(ctx: Context) {
             val req = PeriodicWorkRequestBuilder<SuggestionWorker>(15, TimeUnit.MINUTES)
@@ -76,7 +76,7 @@ class SuggestionWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker
             val nm = ctx.getSystemService(NotificationManager::class.java)
             if (Build.VERSION.SDK_INT >= 26) {
                 nm.createNotificationChannel(
-                    NotificationChannel(CHANNEL, "Vorschläge vom Partner", NotificationManager.IMPORTANCE_DEFAULT)
+                    NotificationChannel(CHANNEL, "Vorschläge vom Partner", NotificationManager.IMPORTANCE_HIGH)
                 )
             }
             if (Build.VERSION.SDK_INT >= 33 &&
@@ -94,8 +94,10 @@ class SuggestionWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker
                 .setStyle(NotificationCompat.BigTextStyle().bigText(text))
                 .setContentIntent(open)
                 .setAutoCancel(true)
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setDefaults(NotificationCompat.DEFAULT_ALL)
                 .build()
-            NotificationManagerCompat.from(ctx).notify(4711, n)
+            NotificationManagerCompat.from(ctx).notify((System.currentTimeMillis() % 100000).toInt(), n)
         }
     }
 }

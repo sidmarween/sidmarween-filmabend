@@ -133,7 +133,7 @@ fun DetailScreen(vm: AppViewModel, type: String, id: Int, back: () -> Unit) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     detail?.let { d ->
-                        if (d.item.vote > 0) Text("Bewertung im Netz: ${fmt1(d.item.vote)}/10", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (d.item.vote > 0) Text((if (de.marween.filmabend.JW.isJw(id)) "IMDb: " else "Bewertung im Netz: ") + "${fmt1(d.item.vote)}/10", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         if (d.runtime > 0) Text(if (info.type == "tv") "ca. ${d.runtime} Min. pro Folge" else "${d.runtime} Min.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         if (d.seasons > 0) Text("${d.seasons} Staffel${if (d.seasons == 1) "" else "n"}", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         if (d.status.isNotBlank()) Text("Serie ${d.status}", color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -160,14 +160,14 @@ fun DetailScreen(vm: AppViewModel, type: String, id: Int, back: () -> Unit) {
             if (id > 0) androidx.compose.material3.FilledTonalButton(
                 onClick = {
                     if (trailerUrl != null) showTrailer = true
-                    else openUrl(ctx, de.marween.filmabend.Trailers.match(vm.trailers.value.items, info.title)?.url
+                    else openUrl(ctx, detail?.item?.ytUrl ?: de.marween.filmabend.Trailers.match(vm.trailers.value.items, info.title)?.url
                         ?: Catalog.youtubeTrailer(info.title, info.year))
                 },
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Icon(androidx.compose.material.icons.Icons.Filled.PlayArrow, null)
                 Spacer(Modifier.width(6.dp))
-                Text(if (trailerUrl != null) "Trailer ansehen" else "Deutschen Trailer ansehen (YouTube)")
+                Text(if (trailerUrl != null || detail?.item?.yt != null) "Trailer ansehen" else "Deutschen Trailer suchen (YouTube)")
             }
 
             // ---- Bewertung ----
@@ -212,6 +212,13 @@ fun DetailScreen(vm: AppViewModel, type: String, id: Int, back: () -> Unit) {
                 }
             }
 
+            detail?.providers?.takeIf { it.isNotEmpty() }?.let { prov ->
+                SectionCard {
+                    Text("Läuft im Abo bei", style = MaterialTheme.typography.titleMedium)
+                    Text(prov.joinToString(" · "), color = Gold)
+                }
+            }
+
             detail?.network?.takeIf { it.isNotBlank() }?.let { net ->
                 SectionCard {
                     Text("Sender / Streamingdienst", style = MaterialTheme.typography.titleMedium)
@@ -228,7 +235,7 @@ fun DetailScreen(vm: AppViewModel, type: String, id: Int, back: () -> Unit) {
                 else if (german != null) Text("Automatisch übersetzt", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(overview, style = MaterialTheme.typography.bodyMedium)
             }
-            Text(if (info.type == "tv") "Seriendaten: TVmaze.com" else "Filmdaten: Apple iTunes Store", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(if (de.marween.filmabend.JW.isJw(id)) "Daten: JustWatch" else if (info.type == "tv") "Seriendaten: TVmaze.com" else "Filmdaten: Apple iTunes Store", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 

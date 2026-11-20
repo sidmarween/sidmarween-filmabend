@@ -139,7 +139,7 @@ fun NewScreen(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
                                 val url = rec.item.trailer
                                 val yt = Trailers.match(vm.trailers.value.items, rec.item.title)
                                 if (url != null) playing = rec.item.title to url
-                                else openUrl(ctx, yt?.url ?: Catalog.youtubeTrailer(rec.item.title, rec.item.year))
+                                else openUrl(ctx, rec.item.ytUrl ?: yt?.url ?: Catalog.youtubeTrailer(rec.item.title, rec.item.year))
                             }
                         )
                     }
@@ -338,7 +338,7 @@ private fun DiscCard(vm: AppViewModel, d: de.marween.filmabend.DiscRelease, open
         modifier = Modifier.fillMaxWidth().clickable { vm.withTitle(d.title) { openDetail(it.type, it.id) } }
     ) {
         Row(Modifier.padding(12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Poster(hit?.poster, hit?.type ?: "movie", Modifier.width(76.dp), corner = 6.dp)
+            Poster(d.cover ?: hit?.poster, hit?.type ?: "movie", Modifier.width(76.dp), corner = 6.dp)
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(d.title, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -358,8 +358,7 @@ private fun DiscCard(vm: AppViewModel, d: de.marween.filmabend.DiscRelease, open
                 TextButton(
                     onClick = {
                         val yt = Trailers.match(vm.trailers.value.items, d.title)
-                        val url = hit?.trailer
-                        openUrl(ctx, yt?.url ?: url ?: Catalog.youtubeTrailer(d.title))
+                        openUrl(ctx, hit?.ytUrl ?: yt?.url ?: Catalog.youtubeTrailer(d.title))
                     },
                     contentPadding = PaddingValues(horizontal = 0.dp, vertical = 0.dp)
                 ) { Icon(Icons.Filled.PlayArrow, null); Text("Trailer") }

@@ -35,7 +35,12 @@ fun DiscoverScreen(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
     val uid by vm.uid.collectAsStateWithLifecycle()
     val hh by vm.household.collectAsStateWithLifecycle()
     val titles by vm.titles.collectAsStateWithLifecycle()
-    val state by vm.recs.collectAsStateWithLifecycle()
+    val recState by vm.recs.collectAsStateWithLifecycle()
+    val genreState by vm.genreList.collectAsStateWithLifecycle()
+    var genre by rememberSaveable { mutableIntStateOf(0) }
+    val genres = listOf("✨ Für euch", "Komödie", "Thriller", "Action", "Krimi", "Drama", "Horror", "Romantik",
+        "Sci-Fi & Fantasy", "Abenteuer", "Animation", "Familie", "Doku", "Reality-TV", "Geschichte & Krieg", "Western")
+    val state = if (genre == 0) recState else genreState
     val partner = hh?.partnerOf(uid)
     val pName = partner?.let { hh?.nameOf(it) } ?: "Partner"
 
@@ -46,15 +51,25 @@ fun DiscoverScreen(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
 
     // Neu laden, wenn Modus wechselt oder neue Bewertungen dazukommen
     LaunchedEffect(mode, ratedCount, partner) { vm.loadRecs(modes[mode]) }
+    LaunchedEffect(genre) { if (genre > 0) vm.loadGenre(genres[genre]) }
 
     val shown = state.items.filter { typeMatches(type, it.item.type) }
 
     Column(Modifier.fillMaxSize()) {
-        ChipRow(listOf("Für uns beide", "Für mich", "Für $pName"), mode, { mode = it })
+        ChipRow(genres, genre, { genre = it })
+        if (genre == 0) ChipRow(listOf("Für uns beide", "Für mich", "Für $pName"), mode, { mode = it }, Modifier.padding(top = 2.dp))
         ChipRow(TypeFilters, type, { type = it }, Modifier.padding(top = 2.dp))
-        if (state.fallback && !state.loading) {
+        if (genre > 0) {
             Text(
-                "Bewertet ein paar Titel mit 7 oder mehr – dann werden die Vorschläge auf euren Geschmack zugeschnitten. Bis dahin: was gerade in den Charts ist.",
+                "Die beliebtesten ${genres[genre]}-Filme & -Serien. Schon gesehen? Tippe ein Gesicht an – so lernt die App euren Geschmack.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
+            )
+        }
+        if (genre == 0 && state.fallback && !state.loading) {
+            Text(
+                "Bewertet ein paar Titel mit 7 oder mehr – dann werden die Vorschläge auf euren Geschmack zugeschnitten. Tipp: oben ein Genre wählen und schnell bewerten. Bis dahin: was gerade beliebt ist.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
@@ -64,18 +79,18 @@ fun DiscoverScreen(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
             state.loading && state.items.isEmpty() ->
                 Box(Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
             state.error != null -> EmptyHint("Keine Vorschläge", state.error ?: "") {
-                TextButton(onClick = { vm.loadRecs(modes[mode]) }) { Text("Nochmal versuchen") }
+                TextButton(onClick = { if (genre == 0) vm.loadRecs(modes[mode]) else vm.loadGenre(genres[genre], force = true) }) { Text("Nochmal versuchen") }
             }
             shown.isEmpty() && !state.loading -> EmptyHint("Nichts Passendes", "Probier einen anderen Filter.")
             else -> LazyColumn(contentPadding = PaddingValues(bottom = 16.dp)) {
                 item {
                     Box(Modifier.fillMaxWidth().padding(end = 8.dp), contentAlignment = Alignment.CenterEnd) {
-                        IconButton(onClick = { vm.loadRecs(modes[mode]) }) { Icon(Icons.Filled.Refresh, "Neu laden") }
+                        IconButton(onClick = { if (genre == 0) vm.loadRecs(modes[mode]) else vm.loadGenre(genres[genre], force = true) }) { Icon(Icons.Filled.Refresh, "Neu laden") }
                     }
                 }
                 items(shown, key = { it.item.key }) { rec ->
                     ItemRow(
-                        vm, rec.item, extra = rec.reason,
+                        vm, rec.item, extra = rec.reason, quickRate = true,
                         trailing = {
                             if (partner != null) {
                                 IconButton(onClick = { vm.withResolved(rec.item) { vm.suggest(it.info, "") } }) {

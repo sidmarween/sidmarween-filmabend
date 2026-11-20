@@ -31,7 +31,9 @@ data class CatalogItem(
     val trailer: String? = null,   // Apple-Vorschau (deutsch) – nur bei Filmen
     val extra: String = "",        // z. B. „ab 25.11. bei Netflix“
     val weight: Int = 0,
+    val yt: String? = null,        // YouTube-Trailer (Video-ID), z. B. von JustWatch
 ) {
+    val ytUrl get() = yt?.let { "https://www.youtube.com/watch?v=$it" }
     val key get() = if (id == 0) "tvname_${normName(title)}" else keyOf(type, id)
     val resolved get() = id != 0
     val info get() = TitleInfo(id, type, title, year, poster, overview, genres)
@@ -44,6 +46,7 @@ data class CatalogDetail(
     val runtime: Int,
     val network: String,
     val status: String,
+    val providers: List<String> = emptyList(),
 ) {
     val info get() = item.info.copy(genres = genres, seasons = seasons)
 }
@@ -76,6 +79,7 @@ object Catalog {
             "sport" in g -> "Sport"
             "reality" in g -> "Reality-TV"
             "drama" in g || "medical" in g -> "Drama"
+            "liebes" in g -> "Romantik"
             "klassik" in g || "classic" in g -> "Klassiker"
             else -> raw
         }
@@ -214,8 +218,14 @@ object Catalog {
 
     // ---------- Öffentliche Funktionen ----------
 
-    /** Sucht Filme und Serien gleichzeitig und mischt die Treffer. */
-    suspend fun search(q: String): List<CatalogItem> = coroutineScope {
+    /** Sucht Filme und Serien – zuerst bei JustWatch (deutsch, mit Postern), sonst iTunes/TVmaze. */
+    suspend fun search(q: String): List<CatalogItem> {
+        val jw = runCatching { JW.search(q) }.getOrNull()
+        if (!jw.isNullOrEmpty()) return jw
+        return searchOld(q)
+    }
+
+    private suspend fun searchOld(q: String): List<CatalogItem> = coroutineScope {
         val m = async { runCatching { searchMovies(q) } }
         val s = async { runCatching { searchShows(q) } }
         val movies = m.await(); val shows = s.await()
@@ -232,8 +242,11 @@ object Catalog {
         out.sortedByDescending { if (normName(it.title) == nq) 1 else 0 }.distinctBy { it.key }
     }
 
-    suspend fun details(type: String, id: Int): CatalogDetail =
-        if (type == "tv") showDetail(id) else movieDetail(id)
+    suspend fun details(type: String, id: Int): CatalogDetail = when {
+        JW.isJw(id) -> JW.detail(id, type)
+        type == "tv" -> showDetail(id)
+        else -> movieDetail(id)
+    }
 
     /** Neue Filme: aktuelle deutsche iTunes-Charts, nur Titel der letzten 12 Monate, mit Trailer. */
     suspend fun newMovies(): List<CatalogItem> {
@@ -578,7 +591,10 @@ data class DiscRelease(
     val formats: List<String>,
     val weekStart: Long,     // Sekunden
     val source: String,
+    val asin: String? = null,
 ) {
+    /** Cover-Bild direkt von Amazon (über die Artikelnummer). */
+    val cover get() = asin?.let { "https://m.media-amazon.com/images/P/$it.01._SCLZZZZZZZ_.jpg" }
     val key get() = "disc_" + normName(title)
 }
 
@@ -613,10 +629,15 @@ object DiscReleases {
         val end = endCandidates.minOrNull() ?: (start + 20000).coerceAtMost(html.length)
         val part = html.substring(start, end)
         val raw = Regex("<li>(.*?)</li>", RegexOption.DOT_MATCHES_ALL).findAll(part)
-            .map { unescape(it.groupValues[1].replace(Regex("<[^>]*>"), "")).trim() }
-            .filter { it.isNotBlank() }
+            .map { m ->
+                val inner = m.groupValues[1]
+                val asin = Regex("/dp/([A-Z0-9]{10})").find(inner)?.groupValues?.get(1)
+                unescape(inner.replace(Regex("<[^>]*>"), "")).trim() to asin
+            }
+            .filter { it.first.isNotBlank() }
         val byTitle = LinkedHashMap<String, Pair<String, MutableSet<String>>>()
-        for (line in raw) {
+        val asins = HashMap<String, String>()
+        for ((line, asin) in raw) {
             val fmt = Regex("\\[([^\\]]+)\\]").find(line)?.groupValues?.get(1) ?: ""
             if (fmt.contains("CD") || fmt.contains("LP")) continue
             var title = line.replace(Regex("\\s*[\\[(][^\\])]*(blu-ray|dvd)[^\\])]*[\\])]", RegexOption.IGNORE_CASE), "").trim()
@@ -624,6 +645,8 @@ object DiscReleases {
             title = title.replace(editionWords, "").trim().trimEnd('-', '–', ' ')
             if (title.length < 2) continue
             val f = byTitle.getOrPut(normName(title)) { title to mutableSetOf() }.second
+            // Für das Cover lieber die normale Ausgabe (ohne Steelbook o. ä.) nehmen
+            if (asin != null && (edition == null || !asins.containsKey(normName(title)))) asins[normName(title)] = asin
             when {
                 fmt.contains("4K", true) -> f += "4K"
                 fmt.contains("Blu-ray", true) -> f += "Blu-ray"
@@ -631,7 +654,7 @@ object DiscReleases {
             }
             if (edition != null) f += edition.substringBefore(" ").replaceFirstChar { it.uppercase() }
         }
-        return byTitle.values.map { (t, f) -> DiscRelease(t, f.sortedBy { listOf("4K", "Blu-ray", "DVD").indexOf(it).let { i -> if (i < 0) 9 else i } }, weekStart, link) }
+        return byTitle.values.map { (t, f) -> DiscRelease(t, f.sortedBy { listOf("4K", "Blu-ray", "DVD").indexOf(it).let { i -> if (i < 0) 9 else i } }, weekStart, link, asins[normName(t)]) }
     }
 
     /** Die letzten [weeks] Wochen, neueste zuerst. */
@@ -667,13 +690,14 @@ object TitleLookup {
         if (cache.containsKey(k)) return cache[k]
         return lock.withLockCompat {
             if (cache.containsKey(k)) return@withLockCompat cache[k]
-            kotlinx.coroutines.delay(350) // iTunes erlaubt nur ~20 Abfragen pro Minute
-            val hit = runCatching {
+            kotlinx.coroutines.delay(120)
+            val res = runCatching {
                 val hits = Catalog.search(title)
                 hits.firstOrNull { normName(it.title) == k }
                     ?: hits.firstOrNull { val h = normName(it.title); k.length >= 5 && h.length >= 5 && (h.startsWith(k) || k.startsWith(h)) }
-            }.getOrNull()
-            cache[k] = hit
+            }
+            val hit = res.getOrNull()
+            if (res.isSuccess) cache[k] = hit   // Fehler nicht merken – beim nächsten Mal neu versuchen
             hit
         }
     }
@@ -852,5 +876,134 @@ object GermanTv {
         } finally {
             conn.disconnect()
         }
+    }
+}
+
+
+// ======================= JustWatch (deutsche Titel, Poster, Genres, Streaming-Anbieter) =======================
+
+/**
+ * Öffentliche JustWatch-Schnittstelle (ohne Schlüssel). Liefert deutsche Titel & Beschreibungen,
+ * Poster, Genres, IMDb-Wertung, YouTube-Trailer und bei welchem Anbieter etwas läuft.
+ * JustWatch-Nummern werden um [OFFSET] verschoben, damit sie nicht mit iTunes/TVmaze kollidieren.
+ */
+object JW {
+    const val OFFSET = 2_000_000_000
+    fun isJw(id: Int) = id >= OFFSET
+
+    /** Unsere Genres -> JustWatch-Kürzel */
+    val genreCodes = linkedMapOf(
+        "Komödie" to listOf("cmy"), "Thriller" to listOf("trl"), "Action" to listOf("act"), "Krimi" to listOf("crm"),
+        "Drama" to listOf("drm"), "Horror" to listOf("hrr"), "Romantik" to listOf("rma"),
+        "Sci-Fi & Fantasy" to listOf("scf", "fnt"), "Abenteuer" to listOf("act"), "Animation" to listOf("ani"),
+        "Familie" to listOf("fml"), "Doku" to listOf("doc"), "Geschichte & Krieg" to listOf("hst", "war"),
+        "Mystery" to listOf("trl"), "Reality-TV" to listOf("rly"), "Musik" to listOf("msc"), "Sport" to listOf("spt"),
+        "Western" to listOf("wsn"),
+    )
+
+    private const val FIELDS = "objectId objectType content(country:\$country,language:\$language){title originalReleaseYear posterUrl shortDescription genres{translation(language:\$language)} scoring{imdbScore} clips{externalId provider}}"
+
+    private suspend fun gql(query: String, vars: JSONObject): JSONObject = withContext(Dispatchers.IO) {
+        vars.put("country", "DE"); vars.put("language", "de")
+        val body = JSONObject().put("query", query).put("variables", vars).toString()
+        val conn = URL("https://apis.justwatch.com/graphql").openConnection() as HttpURLConnection
+        conn.requestMethod = "POST"; conn.doOutput = true
+        conn.connectTimeout = 15000; conn.readTimeout = 20000
+        conn.setRequestProperty("Content-Type", "application/json")
+        conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Android) Filmabend-App")
+        try {
+            conn.outputStream.use { it.write(body.toByteArray()) }
+            if (conn.responseCode !in 200..299) throw IOException("JustWatch nicht erreichbar (${conn.responseCode})")
+            val o = JSONObject(conn.inputStream.bufferedReader().use { it.readText() })
+            o.optJSONObject("data") ?: throw IOException("JustWatch: keine Daten")
+        } finally {
+            conn.disconnect()
+        }
+    }
+
+    private fun JSONObject.s(k: String) = if (isNull(k)) "" else optString(k, "")
+
+    fun parse(node: JSONObject): CatalogItem? {
+        val oid = node.optInt("objectId").takeIf { it > 0 } ?: return null
+        val type = if (node.s("objectType") == "SHOW") "tv" else "movie"
+        val c = node.optJSONObject("content") ?: return null
+        val title = c.s("title").ifBlank { return null }
+        val poster = c.s("posterUrl").takeIf { it.isNotBlank() }
+            ?.let { "https://images.justwatch.com" + it.replace("{profile}", "s332").replace("{format}", "jpg") }
+        val g = c.optJSONArray("genres")
+        val genres = if (g == null) emptyList() else (0 until g.length()).mapNotNull { g.optJSONObject(it)?.s("translation")?.ifBlank { null } }
+            .map { Catalog.genre(it) }.distinct()
+        val clips = c.optJSONArray("clips")
+        val yt = if (clips == null) null else (0 until clips.length()).mapNotNull { clips.optJSONObject(it) }
+            .firstOrNull { it.s("provider") == "YOUTUBE" }?.s("externalId")?.ifBlank { null }
+        return CatalogItem(
+            id = OFFSET + oid, type = type, title = title,
+            year = c.optInt("originalReleaseYear").takeIf { it > 0 }?.toString() ?: "",
+            poster = poster, overview = c.s("shortDescription"),
+            vote = c.optJSONObject("scoring")?.optDouble("imdbScore", 0.0)?.takeIf { !it.isNaN() } ?: 0.0,
+            genres = genres, yt = yt,
+        )
+    }
+
+    private fun edges(data: JSONObject): List<CatalogItem> {
+        val e = data.optJSONObject("popularTitles")?.optJSONArray("edges") ?: return emptyList()
+        return (0 until e.length()).mapNotNull { e.optJSONObject(it)?.optJSONObject("node")?.let(::parse) }.distinctBy { it.key }
+    }
+
+    private const val POPULAR = "query(\$country:Country!,\$language:Language!,\$first:Int!,\$filter:TitleFilter){popularTitles(country:\$country,first:\$first,filter:\$filter){edges{node{$FIELDS}}}}"
+
+    suspend fun search(q: String, first: Int = 30): List<CatalogItem> =
+        edges(gql(POPULAR, JSONObject().put("first", first).put("filter", JSONObject().put("searchQuery", q))))
+
+    /** Beliebte Titel, optional nach Typ ("movie"/"tv"), Genres, Erscheinungsjahr oder Person. */
+    suspend fun popular(type: String? = null, genres: List<String> = emptyList(), first: Int = 40, minYear: Int? = null, personId: Int? = null): List<CatalogItem> {
+        val f = JSONObject()
+        if (type != null) f.put("objectTypes", JSONArray().put(if (type == "tv") "SHOW" else "MOVIE"))
+        if (genres.isNotEmpty()) f.put("genres", JSONArray(genres))
+        if (minYear != null) f.put("releaseYear", JSONObject().put("min", minYear))
+        if (personId != null) f.put("personId", "tp$personId")
+        return edges(gql(POPULAR, JSONObject().put("first", first).put("filter", f)))
+    }
+
+    /** Beliebte Titel eines unserer Genres (z. B. „Komödie“). */
+    suspend fun byGenre(genre: String, type: String? = null, first: Int = 40): List<CatalogItem> {
+        val codes = genreCodes[genre] ?: return emptyList()
+        return popular(type, codes, first)
+    }
+
+    suspend fun detail(id: Int, type: String): CatalogDetail {
+        val nodeId = (if (type == "tv") "ts" else "tm") + (id - OFFSET)
+        val q = "query(\$id:ID!,\$country:Country!,\$language:Language!){node(id:\$id){ ... on MovieOrShow{$FIELDS offers(country:\$country,platform:WEB){monetizationType package{clearName}} content(country:\$country,language:\$language){runtime}} ... on Show{totalSeasonCount}}}"
+        val node = gql(q, JSONObject().put("id", nodeId)).optJSONObject("node") ?: throw IOException("Titel nicht gefunden")
+        val item = parse(node) ?: throw IOException("Titel nicht gefunden")
+        val offers = node.optJSONArray("offers")
+        val flat = if (offers == null) emptyList() else (0 until offers.length()).mapNotNull { offers.optJSONObject(it) }
+            .filter { it.s("monetizationType") in setOf("FLATRATE", "FREE", "ADS") }
+            .mapNotNull { it.optJSONObject("package")?.s("clearName")?.ifBlank { null } }
+            .map { it.replace(" with Ads", "").replace(Regex(" Amazon Channel$"), " (Amazon Channel)") }
+            .distinct()
+        return CatalogDetail(
+            item = item, genres = item.genres,
+            seasons = node.optInt("totalSeasonCount"),
+            runtime = node.optJSONObject("content")?.optInt("runtime") ?: 0,
+            network = "", status = "", providers = flat,
+        )
+    }
+
+    /** Alle Filme & Serien einer Person (über die Besetzungsliste gesucht). */
+    suspend fun personWorks(name: String): List<CatalogItem> {
+        val n = normName(name)
+        val q = "query(\$country:Country!,\$language:Language!,\$first:Int!,\$filter:TitleFilter){popularTitles(country:\$country,first:\$first,filter:\$filter){edges{node{objectId content(country:\$country,language:\$language){credits{name personId}}}}}}"
+        val data = gql(q, JSONObject().put("first", 10).put("filter", JSONObject().put("searchQuery", name)))
+        val e = data.optJSONObject("popularTitles")?.optJSONArray("edges")
+        var pid: Int? = null
+        if (e != null) loop@ for (i in 0 until e.length()) {
+            val credits = e.optJSONObject(i)?.optJSONObject("node")?.optJSONObject("content")?.optJSONArray("credits") ?: continue
+            for (j in 0 until credits.length()) {
+                val c = credits.optJSONObject(j) ?: continue
+                if (normName(c.s("name")) == n) { pid = c.optInt("personId"); break@loop }
+            }
+        }
+        return if (pid != null && pid > 0) popular(first = 100, personId = pid) else search(name, 40)
     }
 }
