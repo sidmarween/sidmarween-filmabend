@@ -9,6 +9,7 @@ import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.SetOptions
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -319,9 +320,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     i.key in seenKeys || (i.type == "tv" && normName(i.title) in seenShowNames)
 
                 if (liked.isEmpty()) {
-                    val lists = listOf("movie", "tv").map { type ->
-                        async { runCatching { Catalog.charts(type, null, 40) }.getOrDefault(emptyList()) }
-                    }.awaitAll()
+                    val movieJob = async { runCatching { Catalog.charts("movie", null, 40) }.getOrDefault(emptyList()) }
+                    val tvJob = async { runCatching { Catalog.charts("tv", null, 40) }.getOrDefault(emptyList()) }
+                    val lists: List<List<CatalogItem>> = listOf(movieJob.await(), tvJob.await())
                     val mixed = ArrayList<CatalogItem>()
                     for (i in 0 until lists.maxOf { it.size }) lists.forEach { l -> if (i < l.size) mixed += l[i] }
                     val items = mixed.filterNot { excluded(it) }.distinctBy { it.key }
@@ -330,11 +331,16 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     return@launch
                 }
 
-                val results = liked.flatMap { e ->
-                    listOf("movie", "tv").map { type ->
-                        async { Triple(e.key, e.value, runCatching { Catalog.charts(type, e.key, 40) }.getOrDefault(emptyList())) }
+                val jobs = ArrayList<Deferred<Triple<String, Double, List<CatalogItem>>>>()
+                for (e in liked) for (type in listOf("movie", "tv")) {
+                    val g: String = e.key
+                    val w: Double = e.value
+                    jobs += async {
+                        val list: List<CatalogItem> = runCatching { Catalog.charts(type, g, 40) }.getOrDefault(emptyList())
+                        Triple(g, w, list)
                     }
-                }.awaitAll()
+                }
+                val results: List<Triple<String, Double, List<CatalogItem>>> = jobs.awaitAll()
 
                 val score = HashMap<String, Double>()
                 val items = HashMap<String, CatalogItem>()

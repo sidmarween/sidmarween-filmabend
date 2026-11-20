@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "251142102651",
+    "project_id": "filmabend-c02a2",
+    "storage_bucket": "filmabend-c02a2.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:251142102651:android:c0530c1ee94efb7dd78cde",
+        "android_client_info": {
+          "package_name": "de.marween.filmabend"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAPd6VVXl18t9VDCOPNz6iZhIoUwGyMa94"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
