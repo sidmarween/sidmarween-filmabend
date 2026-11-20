@@ -1,1 +1,1 @@
-{"query": "query($country:Country!){packages(country:$country,platform:WEB){shortName clearName}}", "variables": {"country": "DE"}}
+{"query": "query($country:Country!,$language:Language!,$first:Int!,$filter:TitleFilter){popularTitles(country:$country,first:$first,filter:$filter){totalCount edges{node{objectId objectType content(country:$country,language:$language){title originalReleaseYear}}}}}", "variables": {"country": "DE", "language": "de", "first": 6, "filter": {"objectTypes": ["SHOW"], "packages": ["rps"]}}}
