@@ -11,6 +11,6 @@ jobs:
       - uses: actions/checkout@v4
       - run: |
           curl -sSL -A "Mozilla/5.0" "https://www.areadvd.de/?s=Neuheiten+der+Woche&feed=rss2" > area_search.xml || true
-          curl -sSL -A "Mozilla/5.0" "https://www.areadvd.de/feed/" > area_feed.xml || true
+          curl -sSL -A "Mozilla/5.0" "https://www.areadvd.de/news/die-ultra-hd-blu-ray-blu-ray-disc-neuheiten-der-woche-175/" > post.xml || true
           git config user.name bot; git config user.email bot@example.com
           git add *.xml && git commit -qm area && git push -q origin apitest
