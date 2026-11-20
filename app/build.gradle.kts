@@ -77,4 +77,6 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.9.0")
 
     implementation("io.coil-kt:coil-compose:2.7.0")
+    // Übersetzung Englisch -> Deutsch direkt auf dem Handy (kostenlos, ohne Schlüssel)
+    implementation("com.google.mlkit:translate:17.0.3")
 }

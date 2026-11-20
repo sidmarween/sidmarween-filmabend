@@ -61,6 +61,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import de.marween.filmabend.AppViewModel
 import de.marween.filmabend.TitleInfo
 import de.marween.filmabend.Catalog
+import de.marween.filmabend.German
 import de.marween.filmabend.CatalogDetail
 import de.marween.filmabend.fmt1
 import de.marween.filmabend.keyOf
@@ -84,7 +85,19 @@ fun DetailScreen(vm: AppViewModel, type: String, id: Int, back: () -> Unit) {
         try { detail = Catalog.details(type, id) } catch (e: Exception) { loadError = e.localizedMessage }
     }
 
-    val info: TitleInfo? = detail?.info ?: t?.info
+    val raw: TitleInfo? = detail?.info ?: t?.info
+    var german by remember { mutableStateOf<String?>(null) }
+    var translating by remember { mutableStateOf(false) }
+    val rawOverview = raw?.overview ?: ""
+    LaunchedEffect(rawOverview) {
+        if (rawOverview.isNotBlank() && German.looksEnglish(rawOverview)) {
+            translating = true
+            german = runCatching { German.translate(rawOverview) }.getOrNull()
+            translating = false
+        } else german = null
+    }
+    // Beim Speichern gleich die deutsche Beschreibung mitnehmen
+    val info: TitleInfo? = raw?.let { r -> german?.let { r.copy(overview = it) } ?: r }
     val watched = t?.isWatched(uid) == true
     val listed = t?.onWatchlist(uid) == true
     val myRating = t?.rating(uid)
@@ -194,9 +207,11 @@ fun DetailScreen(vm: AppViewModel, type: String, id: Int, back: () -> Unit) {
                 }
             }
 
-            val overview = detail?.item?.overview?.ifBlank { null } ?: info.overview
+            val overview = info.overview
             if (overview.isNotBlank()) {
                 Text("Worum geht's?", style = MaterialTheme.typography.titleMedium)
+                if (translating) Text("Wird ins Deutsche übersetzt …", style = MaterialTheme.typography.labelSmall, color = Gold)
+                else if (german != null) Text("Automatisch übersetzt", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(overview, style = MaterialTheme.typography.bodyMedium)
             }
             Text(if (info.type == "tv") "Seriendaten: TVmaze.com" else "Filmdaten: Apple iTunes Store", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)

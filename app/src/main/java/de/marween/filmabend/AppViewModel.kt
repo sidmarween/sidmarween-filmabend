@@ -8,6 +8,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
+import com.google.firebase.firestore.MetadataChanges
 import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
@@ -66,11 +67,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             return
         }
         prefs.edit().putString("uid", u).apply()
-        userReg = db.collection("users").document(u).addSnapshotListener { snap, err ->
+        userReg = db.collection("users").document(u).addSnapshotListener(MetadataChanges.INCLUDE) { snap, err ->
             if (err != null) { message.value = "Profil konnte nicht geladen werden: ${err.message}"; profileLoaded.value = true; return@addSnapshotListener }
             val p = if (snap != null && snap.exists()) Profile(snap.getString("name") ?: "", snap.getString("hid")) else null
             profile.value = p
             profileLoaded.value = true
+            // Erst verbinden, wenn der Server die Liste wirklich angelegt hat –
+            // sonst lehnt Firestore das Mitlesen ab und die Knöpfe wirken „tot“.
+            if (snap?.metadata?.hasPendingWrites() == true) return@addSnapshotListener
             if (p?.hid != currentHid) attachHousehold(p?.hid)
         }
     }
@@ -88,7 +92,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         if (hid == null) { prefs.edit().remove("hid").apply(); return }
         prefs.edit().putString("hid", hid).apply()
         val ref = db.collection("households").document(hid)
-        hhRegs += ref.addSnapshotListener { s, _ ->
+        hhRegs += ref.addSnapshotListener { s, e ->
+            if (e != null) { retryHousehold(hid, e); return@addSnapshotListener }
             if (s != null && s.exists()) {
                 household.value = Household(
                     id = s.id,
@@ -98,11 +103,29 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 )
             }
         }
-        hhRegs += ref.collection("titles").addSnapshotListener { q, _ ->
-            if (q != null) titles.value = q.documents.mapNotNull { Title.from(it) }
+        hhRegs += ref.collection("titles").addSnapshotListener { q, e ->
+            if (e != null) { retryHousehold(hid, e); return@addSnapshotListener }
+            if (q != null) { retries = 0; titles.value = q.documents.mapNotNull { Title.from(it) } }
         }
-        hhRegs += ref.collection("suggestions").addSnapshotListener { q, _ ->
+        hhRegs += ref.collection("suggestions").addSnapshotListener { q, e ->
+            if (e != null) { retryHousehold(hid, e); return@addSnapshotListener }
             if (q != null) suggestions.value = q.documents.mapNotNull { Suggestion.from(it) }.sortedByDescending { it.createdAt }
+        }
+    }
+
+    private var retries = 0
+    private var retryPending = false
+
+    /** Mitlesen ist abgebrochen (z. B. Liste gerade erst angelegt) – kurz warten und neu verbinden. */
+    private fun retryHousehold(hid: String, e: Exception) {
+        if (retryPending) return
+        retryPending = true
+        retries++
+        if (retries == 4) message.value = "Verbindung zur gemeinsamen Liste klappt nicht: ${e.localizedMessage}"
+        viewModelScope.launch {
+            kotlinx.coroutines.delay(if (retries < 4) 2000L else 15000L)
+            retryPending = false
+            if (currentHid == hid) attachHousehold(hid)
         }
     }
 

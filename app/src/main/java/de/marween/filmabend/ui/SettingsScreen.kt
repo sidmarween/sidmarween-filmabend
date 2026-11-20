@@ -43,6 +43,10 @@ import de.marween.filmabend.BuildConfig
 
 /** Änderungsliste – bei jeder neuen Version oben ergänzen. */
 private val changelog = listOf(
+    "1.1" to listOf(
+        "Behoben: Gesehen-Haken und Bewertungen reagierten direkt nach dem Anlegen der Liste nicht",
+        "Englische Beschreibungen werden automatisch ins Deutsche übersetzt",
+    ),
     "1.0" to listOf(
         "Erste Version: gemeinsame Bibliothek für Filme & Serien",
         "Abhaken, Merkliste, Staffeln pro Person",
