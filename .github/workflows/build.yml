@@ -43,7 +43,12 @@ jobs:
           fi
 
       - name: APK bauen
-        run: gradle :app:assembleRelease --no-daemon --stacktrace
+        run: |
+          set -o pipefail
+          gradle :app:assembleRelease --no-daemon --stacktrace 2>&1 | tee build.log || {
+            grep -E "^e: |error:|What went wrong" -A2 build.log | head -40 | while IFS= read -r l; do echo "::error::$l"; done
+            exit 1
+          }
 
       - name: APK umbenennen
         run: cp app/build/outputs/apk/release/app-release.apk Filmabend.apk
