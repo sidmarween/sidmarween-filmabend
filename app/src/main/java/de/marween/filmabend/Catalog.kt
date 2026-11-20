@@ -670,7 +670,8 @@ object TitleLookup {
             kotlinx.coroutines.delay(350) // iTunes erlaubt nur ~20 Abfragen pro Minute
             val hit = runCatching {
                 val hits = Catalog.search(title)
-                hits.firstOrNull { normName(it.title) == k } ?: hits.firstOrNull { normName(it.title).startsWith(k) } ?: hits.firstOrNull()
+                hits.firstOrNull { normName(it.title) == k }
+                    ?: hits.firstOrNull { val h = normName(it.title); k.length >= 5 && h.length >= 5 && (h.startsWith(k) || k.startsWith(h)) }
             }.getOrNull()
             cache[k] = hit
             hit

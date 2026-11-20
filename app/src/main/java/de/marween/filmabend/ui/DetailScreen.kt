@@ -87,7 +87,7 @@ fun DetailScreen(vm: AppViewModel, type: String, id: Int, back: () -> Unit) {
         vm.loadTrailers()
         if (id > 0) {
             try { detail = Catalog.details(type, id) } catch (e: Exception) { loadError = e.localizedMessage }
-        } else loadError = "Aus der Mediathek – keine weiteren Infos."
+        } else loadError = "Zu diesem Titel gibt es keine weiteren Infos."
     }
 
     val raw: TitleInfo? = detail?.info ?: t?.info

@@ -302,6 +302,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val ref = hhRef() ?: return@run
         val u = uid.value ?: return@run
         val to = household.value?.partnerOf(u) ?: throw IllegalStateException("Dein Partner ist noch nicht verbunden.")
+        // Titel auch in eurer Bibliothek anlegen, damit die Detailseite immer funktioniert
+        ref.collection("titles").document(i.key).set(meta(i, titleFor(i.key)), SetOptions.merge()).await()
         ref.collection("suggestions").add(mapOf(
             "from" to u, "to" to to, "key" to i.key, "mediaId" to i.mediaId, "type" to i.type,
             "title" to i.title, "year" to i.year, "poster" to (i.poster ?: ""), "note" to note.trim(),
@@ -338,7 +340,26 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Für Serien aus den Charts erst die echte Serie nachschlagen, dann [action] ausführen. */
     fun withResolved(item: CatalogItem, action: (CatalogItem) -> Unit) = run {
-        action(Catalog.resolve(item))
+        val r = runCatching { Catalog.resolve(item) }.getOrNull()
+            ?: freeItem(item.title, item.type, item.poster, item.overview)
+        action(r)
+    }
+
+    /**
+     * Wenn ein Titel in keiner Filmdatenbank steht (z. B. deutsche TV-Produktionen),
+     * legen wir ihn trotzdem an – mit eigener Nummer. So klappt Senden & Merken immer.
+     */
+    private fun freeItem(title: String, type: String = "movie", poster: String? = null, overview: String = "") =
+        CatalogItem(
+            id = -((("mt:" + normName(title)).hashCode() and 0x3fffffff) + 1),
+            type = type, title = title.trim(), year = "", poster = poster, overview = overview, vote = 0.0,
+        )
+
+    private fun bestMatch(hits: List<CatalogItem>, title: String): CatalogItem? {
+        val n = normName(title)
+        if (n.isBlank()) return null
+        return hits.firstOrNull { normName(it.title) == n }
+            ?: hits.firstOrNull { val h = normName(it.title); n.length >= 5 && h.length >= 5 && (h.startsWith(n) || n.startsWith(h)) }
     }
 
     fun loadRecs(mode: RecMode) {
@@ -470,11 +491,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Zu einem Trailer den passenden Film bzw. die Serie suchen und damit [action] ausführen. */
     fun withTrailerTitle(tr: TrailerItem, action: (CatalogItem) -> Unit) = run {
-        val hits = Catalog.search(tr.show)
-        val n = normName(tr.show)
-        val best = hits.firstOrNull { normName(it.title) == n } ?: hits.firstOrNull()
-            ?: throw IllegalStateException("„${tr.show}“ wurde in der Filmdatenbank nicht gefunden.")
-        action(Catalog.resolve(best))
+        val hits = runCatching { Catalog.search(tr.show) }.getOrDefault(emptyList())
+        val best = bestMatch(hits, tr.show)?.let { runCatching { Catalog.resolve(it) }.getOrNull() }
+        val looksLikeSeries = Regex("staffel|season|serie|\\bS\\d+", RegexOption.IGNORE_CASE).containsMatchIn(tr.title)
+        action(best ?: freeItem(tr.show, if (looksLikeSeries) "tv" else "movie", tr.thumb, "Trailer: ${tr.url}"))
     }
 
     fun loadDiscs(force: Boolean = false) {
@@ -491,8 +511,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Titel (z. B. von einer DVD-Liste) in der Filmdatenbank suchen und damit [action] ausführen. */
     fun withTitle(title: String, action: (CatalogItem) -> Unit) = run {
-        val hit = TitleLookup.find(title) ?: throw IllegalStateException("„$title“ wurde in der Filmdatenbank nicht gefunden.")
-        action(Catalog.resolve(hit))
+        val hit = TitleLookup.find(title)?.let { runCatching { Catalog.resolve(it) }.getOrNull() }
+        action(hit ?: freeItem(title))
     }
 
     /** Alle Seiten unter „Neu“ frisch laden – neueste Trailer, Neuheiten, Mediatheken, DVDs. */
