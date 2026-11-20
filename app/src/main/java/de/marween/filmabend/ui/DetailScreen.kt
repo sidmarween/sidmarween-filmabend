@@ -220,7 +220,6 @@ fun DetailScreen(vm: AppViewModel, type: String, id: Int, back: () -> Unit) {
             }
 
             PartnerButtons(vm, info.title, info.key, { cb -> cb(info) })
-            }
 
             val overview = info.overview
             if (overview.isNotBlank()) {
