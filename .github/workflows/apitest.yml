@@ -11,12 +11,6 @@ jobs:
       - uses: actions/checkout@v4
       - run: |
           : > img.txt
-          cat > q1.json <<'JSON'
-{"query":"query($country:Country!,$language:Language!,$first:Int!,$filter:TitleFilter){popularTitles(country:$country,first:$first,filter:$filter){edges{node{id objectId objectType content(country:$country,language:$language){title originalReleaseYear posterUrl shortDescription genres{shortName translation(language:$language)} externalIds{imdbId} scoring{imdbScore} clips{externalId provider}}}}}}","variables":{"country":"DE","language":"de","first":3,"filter":{"searchQuery":"Barbie"}}}
-JSON
-          cat > q2.json <<'JSON'
-{"query":"query($country:Country!,$language:Language!,$first:Int!,$filter:TitleFilter){popularTitles(country:$country,first:$first,filter:$filter){edges{node{objectId objectType content(country:$country,language:$language){title originalReleaseYear posterUrl}}}}}","variables":{"country":"DE","language":"de","first":5,"filter":{"objectTypes":["MOVIE"],"genres":["cmy"]}}}
-JSON
           for f in q1 q2; do
             echo "== $f" >> img.txt
             curl -sS -X POST https://apis.justwatch.com/graphql -H "Content-Type: application/json" -A "Mozilla/5.0" --data @$f.json | head -c 3000 >> img.txt || true
