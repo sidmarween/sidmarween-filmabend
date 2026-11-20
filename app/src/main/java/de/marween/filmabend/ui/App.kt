@@ -69,6 +69,7 @@ sealed interface Screen {
     data object Search : Screen
     data object Settings : Screen
     data class Detail(val type: String, val id: Int) : Screen
+    data class Person(val name: String, val id: Int) : Screen
 }
 
 @Composable
@@ -143,7 +144,8 @@ private fun MainShell(vm: AppViewModel, tab: Int, setTab: (Int) -> Unit) {
                     }
                 }
             }
-            Screen.Search -> SearchScreen(vm, back) { t, id -> open(Screen.Detail(t, id)) }
+            Screen.Search -> SearchScreen(vm, back, { n, id -> open(Screen.Person(n, id)) }) { t, id -> open(Screen.Detail(t, id)) }
+            is Screen.Person -> PersonScreen(vm, top.name, top.id, back) { t, id -> open(Screen.Detail(t, id)) }
             Screen.Settings -> SettingsScreen(vm, back)
             is Screen.Detail -> DetailScreen(vm, top.type, top.id, back)
         }

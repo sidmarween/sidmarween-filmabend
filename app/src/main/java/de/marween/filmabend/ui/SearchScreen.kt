@@ -3,6 +3,12 @@
 package de.marween.filmabend.ui
 
 import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -50,19 +56,24 @@ import de.marween.filmabend.typeLabel
 import kotlinx.coroutines.delay
 
 @Composable
-fun SearchScreen(vm: AppViewModel, back: () -> Unit, openDetail: (String, Int) -> Unit) {
+fun SearchScreen(vm: AppViewModel, back: () -> Unit, openPerson: (String, Int) -> Unit = { _, _ -> }, openDetail: (String, Int) -> Unit) {
     var query by rememberSaveable { mutableStateOf("") }
+    var mode by rememberSaveable { androidx.compose.runtime.mutableIntStateOf(0) }
+    var people by remember { mutableStateOf<List<de.marween.filmabend.Person>>(emptyList()) }
     var results by remember { mutableStateOf<List<CatalogItem>>(emptyList()) }
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     val focus = remember { FocusRequester() }
 
     LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
-    LaunchedEffect(query) {
-        if (query.trim().length < 2) { results = emptyList(); return@LaunchedEffect }
+    LaunchedEffect(query, mode) {
+        if (query.trim().length < 2) { results = emptyList(); people = emptyList(); return@LaunchedEffect }
         delay(400)
         loading = true; error = null
-        try { results = Catalog.search(query.trim()) } catch (e: Exception) { error = e.localizedMessage }
+        try {
+            if (mode == 0) results = Catalog.search(query.trim())
+            else people = de.marween.filmabend.People.search(query.trim())
+        } catch (e: Exception) { error = e.localizedMessage }
         loading = false
     }
 
@@ -75,10 +86,27 @@ fun SearchScreen(vm: AppViewModel, back: () -> Unit, openDetail: (String, Int) -
         Column(Modifier.padding(pad).fillMaxSize()) {
             OutlinedTextField(
                 query, { query = it },
-                placeholder = { Text("Film oder Serie …") },
+                placeholder = { Text(if (mode == 0) "Film oder Serie …" else "Name, z. B. Matthias Schweighöfer") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).focusRequester(focus)
             )
+            ChipRow(listOf("🎬 Filme & Serien", "🎭 Schauspieler"), mode, { mode = it }, Modifier.padding(top = 8.dp))
+            if (mode == 1) {
+                when {
+                    loading && people.isEmpty() -> Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+                    error != null -> EmptyHint("Hoppla", error ?: "")
+                }
+                LazyColumn(contentPadding = PaddingValues(vertical = 8.dp)) {
+                    if (query.trim().length >= 2) item {
+                        PersonRow(null, "Alle Filme mit „${query.trim()}“", "Direkt nach Darstellernamen suchen") { openPerson(query.trim(), 0) }
+                    }
+                    items(people, key = { "p${it.id}" }) { p ->
+                        val sub = listOf(p.birthday.take(4).let { if (it.isNotBlank()) "geb. $it" else "" }, p.country).filter { it.isNotBlank() }.joinToString(" · ")
+                        PersonRow(p.image, p.name, sub) { openPerson(p.name, p.id) }
+                    }
+                }
+                return@Column
+            }
             when {
                 loading && results.isEmpty() -> Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
                 error != null -> EmptyHint("Hoppla", error ?: "")
@@ -89,6 +117,30 @@ fun SearchScreen(vm: AppViewModel, back: () -> Unit, openDetail: (String, Int) -
                     ItemRow(vm, item) { openDetail(item.type, item.id) }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun PersonRow(image: String?, name: String, sub: String, onClick: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Box(
+            Modifier.size(52.dp).clip(CircleShape).background(CardBg),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(if (image == null && sub.startsWith("Direkt")) Icons.Filled.Search else Icons.Filled.Person, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (image != null) coil.compose.AsyncImage(
+                model = image, contentDescription = null,
+                contentScale = androidx.compose.ui.layout.ContentScale.Crop, modifier = Modifier.fillMaxSize()
+            )
+        }
+        Column(Modifier.weight(1f)) {
+            Text(name, style = MaterialTheme.typography.titleSmall)
+            if (sub.isNotBlank()) Text(sub, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

@@ -682,3 +682,175 @@ object TitleLookup {
         lock(); try { return block() } finally { unlock() }
     }
 }
+
+// ======================= Schauspieler-Suche =======================
+
+data class Person(
+    val id: Int,          // TVmaze-Nummer, 0 = unbekannt
+    val name: String,
+    val image: String?,
+    val birthday: String,
+    val country: String,
+)
+
+object People {
+    private fun JSONObject.s(k: String) = if (isNull(k)) "" else optString(k, "")
+
+    private suspend fun get(url: String): String = withContext(Dispatchers.IO) {
+        val conn = URL(url).openConnection() as HttpURLConnection
+        conn.connectTimeout = 15000; conn.readTimeout = 20000
+        conn.setRequestProperty("User-Agent", "Filmabend-App (Android)")
+        try {
+            if (conn.responseCode !in 200..299) throw IOException("Nicht erreichbar (${conn.responseCode})")
+            conn.inputStream.bufferedReader().use { it.readText() }
+        } finally {
+            conn.disconnect()
+        }
+    }
+
+    /** Personen mit diesem Namen (TVmaze). */
+    suspend fun search(q: String): List<Person> {
+        val arr = JSONArray(get("https://api.tvmaze.com/search/people?q=${URLEncoder.encode(q, "UTF-8")}"))
+        return (0 until arr.length()).mapNotNull { i ->
+            val p = arr.optJSONObject(i)?.optJSONObject("person") ?: return@mapNotNull null
+            Person(
+                id = p.optInt("id"),
+                name = p.s("name"),
+                image = p.optJSONObject("image")?.s("medium")?.ifBlank { null },
+                birthday = p.s("birthday"),
+                country = p.optJSONObject("country")?.s("name") ?: "",
+            )
+        }.filter { it.name.isNotBlank() }
+    }
+
+    /** Filme mit diesem Schauspieler (iTunes, Suche nach Darsteller). */
+    suspend fun movies(name: String): List<CatalogItem> {
+        val json = get("https://itunes.apple.com/search?term=${URLEncoder.encode(name, "UTF-8")}&country=de&media=movie&entity=movie&attribute=actorTerm&limit=100")
+        val arr = JSONObject(json).optJSONArray("results") ?: return emptyList()
+        return (0 until arr.length()).mapNotNull { i ->
+            val o = arr.optJSONObject(i) ?: return@mapNotNull null
+            val id = o.optLong("trackId").toInt().takeIf { it != 0 } ?: return@mapNotNull null
+            val title = o.s("trackName").ifBlank { return@mapNotNull null }
+            CatalogItem(
+                id = id, type = "movie", title = title, year = o.s("releaseDate").take(4),
+                poster = o.s("artworkUrl100").takeIf { it.isNotBlank() }
+                    ?.replace(Regex("/\\d+x\\d+bb(-\\d+)?\\.(png|jpg|jpeg)$"), "/400x600bb.jpg"),
+                overview = o.s("longDescription"), vote = 0.0,
+                genres = listOf(o.s("primaryGenreName")).filter { it.isNotBlank() }.map { Catalog.genre(it) },
+                trailer = o.s("previewUrl").ifBlank { null },
+            )
+        }.distinctBy { it.key }.sortedByDescending { it.year }
+    }
+
+    /** Serien, in denen die Person mitspielt (TVmaze). */
+    suspend fun series(id: Int): List<CatalogItem> {
+        if (id <= 0) return emptyList()
+        val arr = JSONArray(get("https://api.tvmaze.com/people/$id/castcredits?embed=show"))
+        return (0 until arr.length()).mapNotNull { i ->
+            val show = arr.optJSONObject(i)?.optJSONObject("_embedded")?.optJSONObject("show") ?: return@mapNotNull null
+            val sid = show.optInt("id").takeIf { it != 0 } ?: return@mapNotNull null
+            val g = show.optJSONArray("genres")
+            CatalogItem(
+                id = sid, type = "tv", title = show.s("name"), year = show.s("premiered").take(4),
+                poster = show.optJSONObject("image")?.s("medium")?.ifBlank { null },
+                overview = show.s("summary").replace(Regex("<[^>]*>"), ""),
+                vote = show.optJSONObject("rating")?.optDouble("average", 0.0)?.takeIf { !it.isNaN() } ?: 0.0,
+                genres = if (g == null) emptyList() else (0 until g.length()).map { Catalog.genre(g.optString(it)) }.distinct(),
+            )
+        }.distinctBy { it.key }.sortedByDescending { it.year }
+    }
+}
+
+// ======================= Deutsches Fernsehen (privat & öffentlich-rechtlich) =======================
+
+data class TvShow(
+    val item: CatalogItem,
+    val network: String,
+    val public: Boolean,
+    val kind: String,        // Show, Reality-TV, Doku, Serie, Talk …
+    val nextAir: Long,       // Sekunden
+    val airings: Int,
+)
+
+/** Fernsehprogramm der nächsten Tage (TVmaze, Land DE) – zu Sendungen gruppiert. */
+object GermanTv {
+    val publicNetworks = setOf(
+        "das erste", "ard", "zdf", "zdfneo", "zdfinfo", "3sat", "arte", "ard-alpha", "ndr", "ndr fernsehen", "wdr",
+        "swr", "swr fernsehen", "br", "br fernsehen", "hr", "hr-fernsehen", "mdr", "rbb", "sr", "radio bremen",
+        "one", "kika", "phoenix", "tagesschau24", "funk",
+    )
+    private val skipTypes = setOf("News", "Sports")
+
+    private fun kindOf(type: String, genres: List<String>): String = when (type) {
+        "Reality" -> "Reality-TV"
+        "Game Show" -> "Quiz & Show"
+        "Talk Show" -> "Talk"
+        "Documentary" -> "Doku"
+        "Variety" -> "Show"
+        "Animation" -> "Animation"
+        "Scripted" -> genres.firstOrNull() ?: "Serie"
+        else -> genres.firstOrNull() ?: type.ifBlank { "Sendung" }
+    }
+
+    suspend fun upcoming(days: Int = 7): List<TvShow> = coroutineScope {
+        val today = java.time.LocalDate.now()
+        val zone = java.time.ZoneId.of("Europe/Berlin")
+        val nowSec = System.currentTimeMillis() / 1000
+        val shows = LinkedHashMap<Int, TvShow>()
+        for (chunk in (0 until days).map { today.plusDays(it.toLong()) }.chunked(4)) {
+            val arrays = chunk.map { d ->
+                async { runCatching { JSONArray(fetchText("https://api.tvmaze.com/schedule?country=DE&date=$d")) }.getOrNull() }
+            }.map { it.await() }
+            for (arr in arrays) {
+                if (arr == null) continue
+                for (i in 0 until arr.length()) {
+                    val ep = arr.optJSONObject(i) ?: continue
+                    val show = ep.optJSONObject("show") ?: continue
+                    val type = if (show.isNull("type")) "" else show.optString("type")
+                    if (type in skipTypes) continue
+                    val sid = show.optInt("id").takeIf { it != 0 } ?: continue
+                    val net = show.optJSONObject("network")?.optString("name") ?: continue
+                    val air = runCatching {
+                        java.time.LocalDateTime.parse(ep.optString("airdate") + "T" + ep.optString("airtime").ifBlank { "00:00" })
+                            .atZone(zone).toEpochSecond()
+                    }.getOrDefault(0L)
+                    if (air < nowSec - 3600) continue
+                    val existing = shows[sid]
+                    if (existing != null) {
+                        shows[sid] = existing.copy(nextAir = minOf(existing.nextAir, air), airings = existing.airings + 1)
+                        continue
+                    }
+                    val g = show.optJSONArray("genres")
+                    val genres = if (g == null) emptyList() else (0 until g.length()).map { Catalog.genre(g.optString(it)) }.distinct()
+                    val img = show.optJSONObject("image")
+                    val item = CatalogItem(
+                        id = sid, type = "tv",
+                        title = show.optString("name"),
+                        year = (if (show.isNull("premiered")) "" else show.optString("premiered")).take(4),
+                        poster = img?.optString("medium")?.ifBlank { null },
+                        overview = (if (show.isNull("summary")) "" else show.optString("summary")).replace(Regex("<[^>]*>"), "").trim(),
+                        vote = show.optJSONObject("rating")?.optDouble("average", 0.0)?.takeIf { !it.isNaN() } ?: 0.0,
+                        genres = (genres + kindOf(type, genres)).distinct(),
+                        weight = show.optInt("weight"),
+                    )
+                    shows[sid] = TvShow(item, net, net.lowercase() in publicNetworks, kindOf(type, genres), air, 1)
+                }
+            }
+            kotlinx.coroutines.delay(600)
+        }
+        if (shows.isEmpty()) throw IOException("Fernsehprogramm gerade nicht erreichbar.")
+        shows.values.toList()
+    }
+
+    private suspend fun fetchText(url: String): String = withContext(Dispatchers.IO) {
+        val conn = URL(url).openConnection() as HttpURLConnection
+        conn.connectTimeout = 15000; conn.readTimeout = 20000
+        conn.setRequestProperty("User-Agent", "Filmabend-App (Android)")
+        try {
+            if (conn.responseCode !in 200..299) throw IOException("Fehler ${conn.responseCode}")
+            conn.inputStream.bufferedReader().use { it.readText() }
+        } finally {
+            conn.disconnect()
+        }
+    }
+}

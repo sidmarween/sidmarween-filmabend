@@ -21,6 +21,14 @@ enum class RecMode { BOTH, ME, PARTNER }
 
 data class Rec(val item: CatalogItem, val score: Double, val reason: String)
 
+data class TvRec(val show: TvShow, val score: Double, val reason: String)
+
+data class TvState(
+    val loading: Boolean = false,
+    val items: List<TvRec> = emptyList(),
+    val error: String? = null,
+)
+
 data class DiscState(
     val loading: Boolean = false,
     val items: List<DiscRelease> = emptyList(),
@@ -64,6 +72,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val mtFilms = MutableStateFlow(MtState())
     val trailers = MutableStateFlow(TrState())
     val discs = MutableStateFlow(DiscState())
+    val tv = MutableStateFlow(TvState())
     val mtSeries = MutableStateFlow(MtState())
 
     private var userReg: ListenerRegistration? = null
@@ -522,7 +531,57 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         loadNew("movie", force = true)
         loadNew("tv", force = true)
         loadDiscs(force = true)
+        loadTv(force = true)
         loadMediathek(series = false, force = true)
         loadMediathek(series = true, force = true)
+    }
+
+    /** Euer Geschmack pro Genre, aus allen Bewertungen von euch beiden (gut = plus, schlecht = minus). */
+    private fun tasteOfBoth(): Pair<Map<String, Double>, Map<String, String>> {
+        val u = uid.value
+        val people = listOfNotNull(u, household.value?.partnerOf(u))
+        val taste = HashMap<String, Double>()
+        val example = HashMap<String, Pair<String, Int>>()
+        for (t in titles.value) for (who in people) {
+            val r = t.rating(who) ?: continue
+            for (g in t.genres.map { Catalog.genre(it) }.distinct()) {
+                taste[g] = (taste[g] ?: 0.0) + (r - 5.5)
+                if (r >= 7 && (example[g]?.second ?: 0) < r) example[g] = t.title to r
+            }
+        }
+        return taste to example.mapValues { it.value.first }
+    }
+
+    /** TV-Sendungen der nächsten 7 Tage, sortiert nach eurem Geschmack. */
+    fun loadTv(force: Boolean = false) {
+        if (!force && (tv.value.loading || tv.value.items.isNotEmpty())) return
+        tv.value = tv.value.copy(loading = true, error = null)
+        viewModelScope.launch {
+            tv.value = try {
+                val shows = GermanTv.upcoming(7)
+                val (taste, example) = tasteOfBoth()
+                val u = uid.value
+                val p = household.value?.partnerOf(u)
+                val lib = titles.value.associateBy { normName(it.title) }
+                val maxTaste = taste.values.maxOrNull()?.coerceAtLeast(1.0) ?: 1.0
+                val ranked = shows.map { s ->
+                    val known = lib[normName(s.item.title)]
+                    val best = listOfNotNull(known?.rating(u), known?.rating(p)).maxOrNull()
+                    val genreScore = s.item.genres.sumOf { (taste[it] ?: 0.0) / maxTaste }
+                    val topGenre = s.item.genres.filter { (taste[it] ?: 0.0) > 0 }.maxByOrNull { taste[it] ?: 0.0 }
+                    var score = genreScore * 3 + s.item.weight / 40.0
+                    val reason = when {
+                        best != null && best >= 7 -> { score += 10; "Habt ihr mit $best/10 bewertet – läuft wieder" }
+                        best != null && best <= 4 -> { score -= 10; "Fandet ihr nicht so gut" }
+                        topGenre != null -> "Ihr mögt $topGenre" + (example[topGenre]?.let { " – wie „$it“" } ?: "")
+                        else -> "Beliebt"
+                    }
+                    TvRec(s, score, reason)
+                }.sortedByDescending { it.score }
+                TvState(items = ranked)
+            } catch (e: Exception) {
+                TvState(error = e.localizedMessage ?: "Fernsehprogramm konnte nicht geladen werden")
+            }
+        }
     }
 }

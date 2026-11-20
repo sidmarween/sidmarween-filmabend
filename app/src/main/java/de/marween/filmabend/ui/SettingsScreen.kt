@@ -50,6 +50,8 @@ private val changelog = listOf(
         "Trailer-Knopf auf jeder Film- und Serienseite",
         "Trailer: neueste deutsche Trailer von Netflix, Prime Video, Disney+, Paramount+, Sky, RTL+ & Kino",
         "DVD & Blu-ray: Neuerscheinungen der letzten 8 Wochen",
+        "📺 TV-Sendungen privater & öffentlich-rechtlicher Sender, sortiert nach eurem Geschmack",
+        "🎭 Schauspieler-Suche: alle Filme & Serien einer Person",
         "Behoben: „nicht gefunden“ beim Senden/Merken – klappt jetzt mit jedem Titel",
         "„Alles aktualisieren“-Knopf unter „Neu“ holt die neuesten Trailer und Neuheiten",
         "💑 Zusammen gucken: eure gemeinsame Liste – aus jedem Bereich unter „Neu“ mit einem Tipp",

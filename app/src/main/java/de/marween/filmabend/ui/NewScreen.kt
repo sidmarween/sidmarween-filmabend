@@ -79,19 +79,21 @@ fun NewScreen(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
         when (type) {
             3 -> vm.loadMediathek(series = mtType == 1)
             4 -> vm.loadDiscs()
+            5 -> vm.loadTv()
             2 -> {}
             0, 1 -> vm.loadNew(t)
         }
     }
 
     Column(Modifier.fillMaxSize()) {
-        ChipRow(listOf("Neue Filme", "Neue Serien", "Trailer", "Mediatheken", "DVD & Blu-ray"), type, { type = it })
+        ChipRow(listOf("Neue Filme", "Neue Serien", "Trailer", "Mediatheken", "DVD & Blu-ray", "📺 TV-Sendungen"), type, { type = it })
         val anyLoading = listOf(
             vm.trailers.collectAsStateWithLifecycle().value.loading,
             movies.loading, shows.loading,
             vm.discs.collectAsStateWithLifecycle().value.loading,
             vm.mtFilms.collectAsStateWithLifecycle().value.loading,
             vm.mtSeries.collectAsStateWithLifecycle().value.loading,
+            vm.tv.collectAsStateWithLifecycle().value.loading,
         ).any { it }
         androidx.compose.material3.OutlinedButton(
             onClick = { vm.refreshAll() }, enabled = !anyLoading,
@@ -100,7 +102,9 @@ fun NewScreen(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
             Icon(Icons.Filled.Refresh, null)
             Text(if (anyLoading) "  Wird aktualisiert …" else "  Alles aktualisieren (neueste Trailer & Neuheiten)")
         }
-        if (type == 4) {
+        if (type == 5) {
+            TvList(vm, openDetail)
+        } else if (type == 4) {
             DiscList(vm, openDetail)
         } else if (type == 2) {
             TrailerList(vm, openDetail)
@@ -220,6 +224,55 @@ private fun TrailerList(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
                             }
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TvList(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
+    val state by vm.tv.collectAsStateWithLifecycle()
+    var which by rememberSaveable { mutableIntStateOf(0) }
+    var kind by rememberSaveable { mutableIntStateOf(0) }
+    val ctx = LocalContext.current
+    val byNet = when (which) {
+        1 -> state.items.filter { it.show.public }
+        2 -> state.items.filter { !it.show.public }
+        else -> state.items
+    }
+    val kinds = listOf("Alle Arten") + byNet.groupingBy { it.show.kind }.eachCount().entries.sortedByDescending { it.value }.take(10).map { it.key }
+    val shown = if (kind == 0 || kind >= kinds.size) byNet else byNet.filter { it.show.kind == kinds[kind] }
+    val fmt = java.text.SimpleDateFormat("EE dd.MM. HH:mm", java.util.Locale.GERMANY)
+
+    Text(
+        "TV-Sendungen der nächsten 7 Tage – sortiert nach dem, was ihr gut bewertet habt.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
+    )
+    when {
+        state.loading && state.items.isEmpty() -> Loading("Fernsehprogramm wird durchsucht …")
+        state.error != null -> EmptyHint("Kein Programm", state.error ?: "") {
+            TextButton(onClick = { vm.loadTv(force = true) }) { Text("Nochmal versuchen") }
+        }
+        else -> {
+            ChipRow(listOf("Alle Sender", "Öffentlich-rechtlich", "Privat"), which, { which = it; kind = 0 })
+            if (kinds.size > 2) ChipRow(kinds, kind, { kind = it }, Modifier.padding(top = 2.dp))
+            LazyColumn(contentPadding = PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                items(shown.take(150), key = { it.show.item.key }) { r ->
+                    val s = r.show
+                    val more = if (s.airings > 1) " (+${s.airings - 1} weitere)" else ""
+                    val item = s.item.copy(
+                        extra = "${fmt.format(java.util.Date(s.nextAir * 1000))} · ${s.network}$more\n${s.kind} · ${r.reason}",
+                    )
+                    NewCard(
+                        vm, item,
+                        onOpen = { openDetail(item.type, item.id) },
+                        onTrailer = {
+                            openUrl(ctx, Trailers.match(vm.trailers.value.items, item.title)?.url ?: Catalog.youtubeTrailer(item.title))
+                        }
+                    )
                 }
             }
         }
