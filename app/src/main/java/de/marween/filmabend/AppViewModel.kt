@@ -21,6 +21,12 @@ enum class RecMode { BOTH, ME, PARTNER }
 
 data class Rec(val item: CatalogItem, val score: Double, val reason: String)
 
+data class MtState(
+    val loading: Boolean = false,
+    val items: List<MediathekItem> = emptyList(),
+    val error: String? = null,
+)
+
 data class RecState(
     val loading: Boolean = false,
     val items: List<Rec> = emptyList(),
@@ -43,6 +49,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val message = MutableStateFlow<String?>(null)
     val newMovies = MutableStateFlow(RecState())
     val newShows = MutableStateFlow(RecState())
+    val mtFilms = MutableStateFlow(MtState())
+    val mtSeries = MutableStateFlow(MtState())
 
     private var userReg: ListenerRegistration? = null
     private val hhRegs = mutableListOf<ListenerRegistration>()
@@ -410,6 +418,19 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 flow.value = RecState(items = list.map { Rec(it, 0.0, it.extra) })
             } catch (e: Exception) {
                 flow.value = RecState(error = e.localizedMessage ?: "Neuheiten konnten nicht geladen werden")
+            }
+        }
+    }
+
+    fun loadMediathek(series: Boolean, force: Boolean = false) {
+        val flow = if (series) mtSeries else mtFilms
+        if (!force && (flow.value.loading || flow.value.items.isNotEmpty())) return
+        flow.value = flow.value.copy(loading = true, error = null)
+        viewModelScope.launch {
+            flow.value = try {
+                MtState(items = if (series) Mediathek.series() else Mediathek.films())
+            } catch (e: Exception) {
+                MtState(error = e.localizedMessage ?: "Mediatheken konnten nicht geladen werden")
             }
         }
     }

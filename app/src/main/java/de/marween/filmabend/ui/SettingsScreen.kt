@@ -48,6 +48,7 @@ private val changelog = listOf(
         "Englische Beschreibungen werden automatisch ins Deutsche übersetzt",
         "Neu: Seite „Neu & Trailer“ mit neuen Filmen (deutsche Trailer) und Serienstarts",
         "Trailer-Knopf auf jeder Film- und Serienseite",
+        "Mediatheken: neue Filme & Serien von ARD, ZDF, arte, 3sat, WDR, SWR, NDR, BR … direkt ansehen",
     ),
     "1.0" to listOf(
         "Erste Version: gemeinsame Bibliothek für Filme & Serien",
@@ -107,7 +108,7 @@ fun SettingsScreen(vm: AppViewModel, back: () -> Unit) {
             SectionCard {
                 Text("Info", style = MaterialTheme.typography.titleMedium)
                 Text("Filmabend ${BuildConfig.VERSION_NAME}", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("Filmdaten: Apple iTunes Store (Deutschland). Seriendaten: TVmaze.com (CC BY-SA).",
+                Text("Filmdaten: Apple iTunes Store (Deutschland). Seriendaten: TVmaze.com (CC BY-SA). Mediatheken: MediathekViewWeb.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 changelog.forEach { (v, items) ->
                     Text("Version $v", fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp))

@@ -330,3 +330,151 @@ object Catalog {
         }.distinctBy { it.key }
     }
 }
+
+// ======================= Öffentlich-rechtliche Mediatheken =======================
+
+/** Ein Film oder eine Serie aus ARD, ZDF, arte, 3sat, WDR, SWR, NDR, BR … (über MediathekViewWeb). */
+data class MediathekItem(
+    val channel: String,
+    val topic: String,
+    val title: String,
+    val description: String,
+    val timestamp: Long,
+    val durationMin: Int,
+    val video: String,
+    val website: String,
+    val isSeries: Boolean,
+    val season: Int = 0,
+    val episodes: Int = 1,
+    val trailer: String? = null,
+) {
+    /** Name, unter dem es in eurer Bibliothek landet. */
+    val name get() = if (isSeries) topic.trim() else title
+    /** Eigene Nummer (negativ), damit es nicht mit iTunes/TVmaze kollidiert. */
+    val mediaId get() = -((("mt:" + normName(name)).hashCode() and 0x3fffffff) + 1)
+    val type get() = if (isSeries) "tv" else "movie"
+    val key get() = keyOf(type, mediaId)
+    val info get() = TitleInfo(mediaId, type, name, "", null, description, listOf("Mediathek $channel"))
+}
+
+object Mediathek {
+    private val channels = setOf(
+        "ARD", "ZDF", "ZDFNEO", "ZDF-TIVI", "KIKA", "ARTE.DE", "3SAT", "BR", "HR", "MDR", "NDR",
+        "RBB", "SR", "SWR", "WDR", "ONE", "ARD-ALPHA", "PHOENIX", "FUNK.NET", "RADIO BREMEN TV",
+    )
+    private val skipWords = listOf("audiodeskription", "gebärdensprache", "hörfassung", "originalversion", "(ov)", "klare sprache")
+    private val skipTopics = listOf(
+        "tagesschau", "heute", "nachrichten", "magazin", "sport", "fußball", "champions league", "volle kanne",
+        "talk", "lanz", "maischberger", "wetter", "morgenmagazin", "mittagsmagazin", "gottesdienst", "börse",
+    )
+
+    private suspend fun query(field: String?, q: String?, minSec: Int?, maxSec: Int?, size: Int): List<JSONObject> =
+        withContext(Dispatchers.IO) {
+            val body = JSONObject().apply {
+                put("queries", JSONArray().apply {
+                    if (field != null && q != null) put(JSONObject().put("fields", JSONArray().put(field)).put("query", q))
+                })
+                put("sortBy", "timestamp"); put("sortOrder", "desc"); put("future", false)
+                if (minSec != null) put("duration_min", minSec)
+                if (maxSec != null) put("duration_max", maxSec)
+                put("offset", 0); put("size", size)
+            }.toString()
+            val conn = URL("https://mediathekviewweb.de/api/query").openConnection() as HttpURLConnection
+            conn.requestMethod = "POST"
+            conn.doOutput = true
+            conn.connectTimeout = 15000
+            conn.readTimeout = 25000
+            conn.setRequestProperty("Content-Type", "text/plain")
+            conn.setRequestProperty("User-Agent", "Filmabend-App (Android)")
+            try {
+                conn.outputStream.use { it.write(body.toByteArray()) }
+                if (conn.responseCode !in 200..299) throw IOException("Mediatheken nicht erreichbar (Fehler ${conn.responseCode})")
+                val text = conn.inputStream.bufferedReader().use { it.readText() }
+                val arr = JSONObject(text).optJSONObject("result")?.optJSONArray("results") ?: JSONArray()
+                (0 until arr.length()).mapNotNull { arr.optJSONObject(it) }
+            } finally {
+                conn.disconnect()
+            }
+        }
+
+    private fun JSONObject.s(k: String) = if (isNull(k)) "" else optString(k, "")
+    private fun ok(o: JSONObject): Boolean {
+        val t = o.s("title").lowercase()
+        val topic = o.s("topic").lowercase()
+        return o.s("channel").uppercase() in channels &&
+            skipWords.none { it in t } &&
+            skipTopics.none { it in topic } &&
+            o.s("url_video").isNotBlank()
+    }
+    private fun clean(title: String) = title
+        .replace(Regex("\\s*\\((S\\d+/E\\d+|Folge \\d+)\\)"), "")
+        .replace(Regex("\\s*\\|\\s*Film\\s*$"), "")
+        .trim()
+
+    private suspend fun trailers(): List<JSONObject> =
+        runCatching { query("title", "trailer", null, 400, 300) }.getOrDefault(emptyList()).filter { ok(it) }
+
+    private fun findTrailer(trailers: List<JSONObject>, vararg names: String): String? {
+        val wanted = names.map { normName(it) }.filter { it.length >= 4 }
+        return trailers.firstOrNull { t ->
+            val tn = normName(t.s("title")); val tp = normName(t.s("topic"))
+            wanted.any { w -> w == tp || tn.contains(w) }
+        }?.s("url_video")?.ifBlank { null }
+    }
+
+    /** Neue Spielfilme und TV-Filme (inkl. Tatort & Polizeiruf) aus den Mediatheken. */
+    suspend fun films(): List<MediathekItem> = coroutineScope {
+        val a = async { runCatching { query("topic", "film", 4500, null, 250) }.getOrDefault(emptyList()) }
+        val b = async { runCatching { query("topic", "tatort", 4800, null, 40) }.getOrDefault(emptyList()) }
+        val c = async { runCatching { query("topic", "polizeiruf", 4800, null, 30) }.getOrDefault(emptyList()) }
+        val tr = async { trailers() }
+        val all = (a.await() + b.await() + c.await()).filter { ok(it) }.sortedByDescending { it.optLong("timestamp") }
+        if (all.isEmpty()) throw IOException("Mediatheken gerade nicht erreichbar.")
+        val trailerList = tr.await()
+        all.distinctBy { normName(clean(it.s("title"))) }.take(120).map { o ->
+            val title = clean(o.s("title"))
+            MediathekItem(
+                channel = o.s("channel"), topic = o.s("topic"), title = title, description = o.s("description"),
+                timestamp = o.optLong("timestamp"), durationMin = o.optInt("duration") / 60,
+                video = o.s("url_video"), website = o.s("url_website"), isSeries = false,
+                trailer = findTrailer(trailerList, title),
+            )
+        }
+    }
+
+    /** Serien, von denen gerade neue Folgen in den Mediatheken sind – neue Serien (Staffel 1) zuerst. */
+    suspend fun series(): List<MediathekItem> = coroutineScope {
+        val tr = async { trailers() }
+        val pages = listOf(0, 1).map { p ->
+            async {
+                runCatching {
+                    // zwei Seiten à 500 neueste Folgen zwischen 20 und 70 Minuten
+                    if (p == 0) query(null, null, 1200, 4200, 500)
+                    else query("title", "folge", 1200, 4200, 500)
+                }.getOrDefault(emptyList())
+            }
+        }.map { it.await() }.flatten().filter { ok(it) }
+        if (pages.isEmpty()) throw IOException("Mediatheken gerade nicht erreichbar.")
+        val epRegex = Regex("\\(S(\\d{1,2})/E(\\d+)\\)")
+        data class Ep(val o: JSONObject, val season: Int, val ep: Int)
+        val eps = pages.mapNotNull { o ->
+            val m = epRegex.find(o.s("title")) ?: return@mapNotNull null
+            Ep(o, m.groupValues[1].toInt(), m.groupValues[2].toInt())
+        }.distinctBy { it.o.s("url_video") }
+        val trailerList = tr.await()
+        eps.groupBy { normName(it.o.s("topic")) }.values.map { list ->
+            val newest = list.maxBy { it.o.optLong("timestamp") }
+            val season = newest.season
+            val first = list.filter { it.season == season }.minBy { it.ep }
+            val topic = newest.o.s("topic").trim()
+            MediathekItem(
+                channel = newest.o.s("channel"), topic = topic, title = clean(first.o.s("title")),
+                description = first.o.s("description").ifBlank { newest.o.s("description") },
+                timestamp = newest.o.optLong("timestamp"), durationMin = first.o.optInt("duration") / 60,
+                video = first.o.s("url_video"), website = first.o.s("url_website"), isSeries = true,
+                season = season, episodes = list.count { it.season == season },
+                trailer = findTrailer(trailerList, topic),
+            )
+        }.sortedWith(compareByDescending<MediathekItem> { it.season == 1 }.thenByDescending { it.timestamp })
+    }
+}

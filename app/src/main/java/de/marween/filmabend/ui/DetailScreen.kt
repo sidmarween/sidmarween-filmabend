@@ -84,7 +84,9 @@ fun DetailScreen(vm: AppViewModel, type: String, id: Int, back: () -> Unit) {
     var showTrailer by remember { mutableStateOf(false) }
 
     LaunchedEffect(type, id) {
-        try { detail = Catalog.details(type, id) } catch (e: Exception) { loadError = e.localizedMessage }
+        if (id > 0) {
+            try { detail = Catalog.details(type, id) } catch (e: Exception) { loadError = e.localizedMessage }
+        } else loadError = "Aus der Mediathek – keine weiteren Infos."
     }
 
     val raw: TitleInfo? = detail?.info ?: t?.info
@@ -154,7 +156,7 @@ fun DetailScreen(vm: AppViewModel, type: String, id: Int, back: () -> Unit) {
 
             val ctx = androidx.compose.ui.platform.LocalContext.current
             val trailerUrl = detail?.item?.trailer
-            androidx.compose.material3.FilledTonalButton(
+            if (id > 0) androidx.compose.material3.FilledTonalButton(
                 onClick = {
                     if (trailerUrl != null) showTrailer = true
                     else ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW,
