@@ -11,13 +11,13 @@ jobs:
       - uses: actions/checkout@v4
       - run: |
           : > yt.txt
-          for h in NetflixDE netflixdeutschland PrimeVideoDE primevideode DisneyPlusDE disneyplusde AppleTVDE appletvde ParamountPlusDE paramountplusde SkyDeutschland skyde WOWde RTLplus joyn MagentaTV ARDMediathek ZDF ZDFneo arte.de; do
-            id=$(curl -sSL -A "Mozilla/5.0" -H "Accept-Language: de" "https://www.youtube.com/@$h" | grep -o '"externalId":"[^"]*"' | head -1 | cut -d'"' -f4)
+          for h in NetflixDE NetflixDACH netflixdach Netflix NetflixDeutschland AppleTVDE AppleTVplusDE appletvdeutschland AppleTV WOWTVde wow_de WOW ARD DasErste ardmediathek artede ARTEde arte MagentaTVDE warnerbrosde SonyPicturesDE UniversalPicturesDE DisneyDE KinoCheck; do
+            id=$(curl -sSL -A "Mozilla/5.0" -H "Accept-Language: de" -b "SOCS=CAI; CONSENT=YES+1" "https://www.youtube.com/@$h" | grep -o '"externalId":"[^"]*"' | head -1 | cut -d'"' -f4)
             name=""
             if [ -n "$id" ]; then
               feed=$(curl -sS "https://www.youtube.com/feeds/videos.xml?channel_id=$id")
               name=$(echo "$feed" | grep -o '<title>[^<]*</title>' | head -1)
-              titles=$(echo "$feed" | grep -o '<media:title>[^<]*</media:title>' | head -6 | tr '\n' ' ')
+              titles=$(echo "$feed" | grep -o '<media:title>[^<]*</media:title>' | head -4 | tr '\n' ' ')
             fi
             echo "$h | $id | $name | $titles" >> yt.txt
           done
