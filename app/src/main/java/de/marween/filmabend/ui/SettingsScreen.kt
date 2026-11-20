@@ -51,6 +51,7 @@ private val changelog = listOf(
         "Trailer: neueste deutsche Trailer von Netflix, Prime Video, Disney+, Paramount+, Sky, RTL+ & Kino",
         "DVD & Blu-ray: Neuerscheinungen der letzten 8 Wochen – jetzt mit Cover",
         "Sofort-Benachrichtigung bei neuen Vorschlägen",
+        "Fehlende Bilder werden automatisch gesucht (JustWatch, TVmaze, Mediatheken, Wikipedia)",
         "WhatsApp-Liste: eure bisher gesehenen Filme & Serien auf einen Tipp übernehmen",
         "Filmdaten jetzt von JustWatch: deutsche Titel, Poster, Trailer und „Läuft bei“",
         "Entdecken: nach Genre stöbern (Comedy, Thriller, Action …) und schnell bewerten",

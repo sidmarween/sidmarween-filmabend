@@ -140,7 +140,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
         hhRegs += ref.collection("titles").addSnapshotListener { q, e ->
             if (e != null) { retryHousehold(hid, e); return@addSnapshotListener }
-            if (q != null) { retries = 0; titles.value = q.documents.mapNotNull { Title.from(it) } }
+            if (q != null) {
+                retries = 0
+                titles.value = q.documents.mapNotNull { Title.from(it) }
+                val noPic = q.documents.filter { (it.getString("poster") ?: "").isBlank() && it.getBoolean("posterChecked") != true }
+                if (noPic.isNotEmpty()) fillMissingPosters()
+            }
         }
         hhRegs += ref.collection("suggestions").addSnapshotListener { q, e ->
             if (e != null) { retryHousehold(hid, e); return@addSnapshotListener }
@@ -673,4 +678,27 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun waImported() = prefs.getBoolean("waImported", false)
+
+    private var posterJob: kotlinx.coroutines.Job? = null
+    private val posterTried = HashSet<String>()
+
+    /** Für Titel ohne Bild automatisch eins suchen und für euch beide speichern. */
+    fun fillMissingPosters() {
+        if (posterJob?.isActive == true) return
+        posterJob = viewModelScope.launch {
+            val ref = hhRef() ?: return@launch
+            while (true) {
+                val next = titles.value.firstOrNull { it.poster.isNullOrBlank() && !it.posterChecked && it.key !in posterTried } ?: break
+                posterTried += next.key
+                val img = runCatching { PosterFinder.find(next.title, next.type) }.getOrNull()
+                runCatching {
+                    ref.collection("titles").document(next.key).set(
+                        if (img != null) mapOf("poster" to img) else mapOf("posterChecked" to true),
+                        SetOptions.merge()
+                    ).await()
+                }
+                kotlinx.coroutines.delay(1200)
+            }
+        }
+    }
 }

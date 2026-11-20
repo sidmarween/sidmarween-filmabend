@@ -22,6 +22,7 @@ data class Title(
     val addedAt: Long,
     val together: Boolean = false,
     val togetherBy: String = "",
+    val posterChecked: Boolean = false,
 ) {
     fun isWatched(uid: String?) = uid != null && watched[uid] == true
     fun onWatchlist(uid: String?) = uid != null && watchlist[uid] == true
@@ -55,6 +56,7 @@ data class Title(
                 addedAt = (doc.get("addedAt") as? Number)?.toLong() ?: 0L,
                 together = doc.getBoolean("together") == true,
                 togetherBy = doc.getString("togetherBy") ?: "",
+                posterChecked = doc.getBoolean("posterChecked") == true,
             )
         }
 

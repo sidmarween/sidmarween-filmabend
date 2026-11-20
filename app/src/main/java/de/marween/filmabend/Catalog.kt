@@ -1007,3 +1007,90 @@ object JW {
         return if (pid != null && pid > 0) popular(first = 100, personId = pid) else search(name, 40)
     }
 }
+
+// ======================= Fehlende Bilder suchen =======================
+
+/**
+ * Sucht ein Bild zu einem Titel, wenn keines da ist – nacheinander bei
+ * JustWatch, TVmaze, den Mediatheken (Vorschaubild der Sendung) und Wikipedia.
+ */
+object PosterFinder {
+    private fun JSONObject.s(k: String) = if (isNull(k)) "" else optString(k, "")
+
+    private suspend fun get(url: String): String = withContext(Dispatchers.IO) {
+        val conn = URL(url).openConnection() as HttpURLConnection
+        conn.connectTimeout = 12000; conn.readTimeout = 15000
+        conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Android) Filmabend-App")
+        conn.instanceFollowRedirects = true
+        try {
+            if (conn.responseCode !in 200..299) throw IOException("${conn.responseCode}")
+            conn.inputStream.bufferedReader().use { it.readText().take(400_000) }
+        } finally {
+            conn.disconnect()
+        }
+    }
+
+    private fun close(a: String, b: String): Boolean {
+        val x = normName(a); val y = normName(b)
+        if (x.isBlank() || y.isBlank()) return false
+        return x == y || (x.length >= 5 && y.length >= 5 && (x.startsWith(y) || y.startsWith(x)))
+    }
+
+    private suspend fun fromJustWatch(title: String): String? =
+        runCatching { JW.search(title, 8).firstOrNull { close(it.title, title) }?.poster }.getOrNull()
+
+    private suspend fun fromTvmaze(title: String): String? = runCatching {
+        val o = JSONObject(get("https://api.tvmaze.com/singlesearch/shows?q=" + URLEncoder.encode(title, "UTF-8")))
+        if (!close(o.s("name"), title)) null
+        else o.optJSONObject("image")?.let { it.s("original").ifBlank { it.s("medium") } }?.ifBlank { null }
+    }.getOrNull()
+
+    /** Vorschaubild (og:image) der Sendungsseite in ARD/ZDF/arte & Co. */
+    private suspend fun fromMediathek(title: String): String? = runCatching {
+        val body = JSONObject().put("queries", JSONArray().put(JSONObject().put("fields", JSONArray().put("topic").put("title")).put("query", title)))
+            .put("sortBy", "timestamp").put("sortOrder", "desc").put("future", false).put("offset", 0).put("size", 5).toString()
+        val json = withContext(Dispatchers.IO) {
+            val conn = URL("https://mediathekviewweb.de/api/query").openConnection() as HttpURLConnection
+            conn.requestMethod = "POST"; conn.doOutput = true
+            conn.connectTimeout = 12000; conn.readTimeout = 15000
+            conn.setRequestProperty("Content-Type", "text/plain")
+            try {
+                conn.outputStream.use { it.write(body.toByteArray()) }
+                conn.inputStream.bufferedReader().use { it.readText() }
+            } finally { conn.disconnect() }
+        }
+        val arr = JSONObject(json).optJSONObject("result")?.optJSONArray("results") ?: return@runCatching null
+        for (i in 0 until arr.length()) {
+            val site = arr.optJSONObject(i)?.s("url_website") ?: continue
+            if (site.isBlank()) continue
+            val html = runCatching { get(site) }.getOrNull() ?: continue
+            val img = Regex("<meta[^>]+property=\"og:image\"[^>]+content=\"([^\"]+)\"").find(html)?.groupValues?.get(1)
+                ?: Regex("<meta[^>]+content=\"([^\"]+)\"[^>]+property=\"og:image\"").find(html)?.groupValues?.get(1)
+            if (!img.isNullOrBlank()) return@runCatching img.replace("&amp;", "&")
+        }
+        null
+    }.getOrNull()
+
+    /** Hauptbild des passenden Wikipedia-Artikels (erst Deutsch, dann Englisch). */
+    private suspend fun fromWikipedia(title: String, lang: String): String? = runCatching {
+        val url = "https://$lang.wikipedia.org/w/api.php?action=query&format=json&generator=search&gsrlimit=3&prop=pageimages&piprop=thumbnail&pithumbsize=500&gsrsearch=" +
+            URLEncoder.encode(title, "UTF-8")
+        val pages = JSONObject(get(url)).optJSONObject("query")?.optJSONObject("pages") ?: return@runCatching null
+        val list = pages.keys().asSequence().mapNotNull { pages.optJSONObject(it) }
+            .sortedBy { it.optInt("index", 99) }.toList()
+        list.firstOrNull { close(it.s("title").substringBefore(" ("), title) && it.optJSONObject("thumbnail") != null }
+            ?.optJSONObject("thumbnail")?.s("source")?.ifBlank { null }
+    }.getOrNull()
+
+    suspend fun find(title: String, type: String): String? {
+        val clean = title.substringBefore(" – ").substringBefore(" - ").trim().ifBlank { title }
+        return fromJustWatch(title)
+            ?: (if (type == "tv") fromTvmaze(title) else null)
+            ?: fromMediathek(title)
+            ?: (if (clean != title) fromJustWatch(clean) else null)
+            ?: fromWikipedia(title, "de")
+            ?: fromWikipedia(clean, "de")
+            ?: fromWikipedia(title, "en")
+            ?: fromTvmaze(clean)
+    }
+}
