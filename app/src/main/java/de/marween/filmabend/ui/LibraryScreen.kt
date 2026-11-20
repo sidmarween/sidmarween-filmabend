@@ -39,9 +39,11 @@ fun LibraryScreen(vm: AppViewModel, openDetail: (String, Int) -> Unit, openSearc
     val partner = hh?.partnerOf(uid)
     val pName = if (partner != null) hh?.nameOf(partner) ?: "Partner" else "Partner"
 
-    var who by rememberSaveable { mutableIntStateOf(0) }
+    var who by rememberSaveable { mutableIntStateOf(3) }
+    var waDone by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(vm.waImported()) }
+    var waBusy by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     var type by rememberSaveable { mutableIntStateOf(0) }
-    val whoOptions = listOf("💑 Zusammen gucken", "Von mir gesehen", "Von $pName gesehen", "Von beiden", "Merkliste")
+    val whoOptions = listOf("💑 Zusammen gucken", "✓ Von mir gesehen", "✓ Von $pName gesehen", "✓ Gemeinsam gesehen", "Merkliste")
 
     val list = titles.filter { typeMatches(type, it.type) }.let { all ->
         when (who) {
@@ -55,6 +57,24 @@ fun LibraryScreen(vm: AppViewModel, openDetail: (String, Int) -> Unit, openSearc
     }
 
     Column(Modifier.fillMaxSize()) {
+        if (!waDone) {
+            androidx.compose.material3.Card(
+                colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = CardBg),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp)
+            ) {
+                Column(Modifier.padding(12.dp)) {
+                    Text("💬 Eure WhatsApp-Liste ist bereit", style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        "340 Filme & Serien aus eurem Chat – auf einen Tipp für euch beide als gesehen abhaken.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Button(enabled = !waBusy, onClick = {
+                        waBusy = true
+                        vm.importWhatsApp { waBusy = false; waDone = vm.waImported(); who = 3 }
+                    }, modifier = Modifier.padding(top = 6.dp)) { Text(if (waBusy) "Wird übernommen …" else "Jetzt übernehmen") }
+                }
+            }
+        }
         ChipRow(whoOptions, who, { who = it })
         ChipRow(TypeFilters, type, { type = it }, Modifier.padding(top = 2.dp))
         if (list.isEmpty()) {
