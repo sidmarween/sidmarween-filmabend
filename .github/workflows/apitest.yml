@@ -10,9 +10,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: |
-          q() { curl -sS -X POST https://mediathekviewweb.de/api/query -H "Content-Type: text/plain" --data "$2" > $1 || true; }
-          q f1.json '{"queries":[{"fields":["topic"],"query":"film"}],"sortBy":"timestamp","sortOrder":"desc","future":false,"duration_min":4500,"offset":0,"size":200}'
-          q s1.json '{"queries":[],"sortBy":"timestamp","sortOrder":"desc","future":false,"duration_min":1200,"duration_max":4000,"offset":0,"size":500}'
-          q t1.json '{"queries":[{"fields":["title"],"query":"trailer"}],"sortBy":"timestamp","sortOrder":"desc","future":false,"offset":0,"size":50}'
+          : > yt.txt
+          for h in NetflixDE netflixdeutschland PrimeVideoDE primevideode DisneyPlusDE disneyplusde AppleTVDE appletvde ParamountPlusDE paramountplusde SkyDeutschland skyde WOWde RTLplus joyn MagentaTV ARDMediathek ZDF ZDFneo arte.de; do
+            id=$(curl -sSL -A "Mozilla/5.0" -H "Accept-Language: de" "https://www.youtube.com/@$h" | grep -o '"externalId":"[^"]*"' | head -1 | cut -d'"' -f4)
+            name=""
+            if [ -n "$id" ]; then
+              feed=$(curl -sS "https://www.youtube.com/feeds/videos.xml?channel_id=$id")
+              name=$(echo "$feed" | grep -o '<title>[^<]*</title>' | head -1)
+              titles=$(echo "$feed" | grep -o '<media:title>[^<]*</media:title>' | head -6 | tr '\n' ' ')
+            fi
+            echo "$h | $id | $name | $titles" >> yt.txt
+          done
           git config user.name bot; git config user.email bot@example.com
-          git add *.json && git commit -qm out2 && git push -q origin apitest
+          git add yt.txt && git commit -qm yt && git push -q origin apitest
