@@ -15,4 +15,4 @@ jobs:
           q s1.json '{"queries":[],"sortBy":"timestamp","sortOrder":"desc","future":false,"duration_min":1200,"duration_max":4000,"offset":0,"size":500}'
           q t1.json '{"queries":[{"fields":["title"],"query":"trailer"}],"sortBy":"timestamp","sortOrder":"desc","future":false,"offset":0,"size":50}'
           git config user.name bot; git config user.email bot@example.com
-          git rm -q --cached *.json 2>/dev/null; git add *.json && git commit -qm out2 && git push -q origin apitest
+          git add *.json && git commit -qm out2 && git push -q origin apitest
