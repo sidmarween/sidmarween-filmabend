@@ -23,6 +23,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -141,4 +143,21 @@ fun typeMatches(filter: Int, type: String) = when (filter) {
     1 -> type == "movie"
     2 -> type == "tv"
     else -> true
+}
+
+/** Zeigt Text immer auf Deutsch – Englisches wird automatisch auf dem Handy übersetzt. */
+@Composable
+fun GermanText(
+    text: String,
+    modifier: Modifier = Modifier,
+    style: androidx.compose.ui.text.TextStyle = MaterialTheme.typography.bodySmall,
+    maxLines: Int = Int.MAX_VALUE,
+) {
+    var shown by androidx.compose.runtime.remember(text) { androidx.compose.runtime.mutableStateOf(text) }
+    androidx.compose.runtime.LaunchedEffect(text) {
+        if (de.marween.filmabend.German.looksEnglish(text)) {
+            shown = runCatching { de.marween.filmabend.German.translate(text) }.getOrDefault(text)
+        }
+    }
+    Text(shown, modifier = modifier, style = style, maxLines = maxLines, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
 }

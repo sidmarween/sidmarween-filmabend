@@ -32,7 +32,7 @@ object German {
         val words = text.lowercase().split(Regex("[^a-zäöüß]+")).filter { it.isNotBlank() }
         val e = words.count { it in en }
         val d = words.count { it in de }
-        return e >= 2 && e > d
+        return (e >= 2 && e > d) || (words.size < 30 && e >= 1 && d == 0)
     }
 
     /** Gibt den Text auf Deutsch zurück (oder unverändert, wenn er schon deutsch ist). */

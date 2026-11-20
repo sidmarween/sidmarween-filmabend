@@ -3,7 +3,10 @@
 package de.marween.filmabend.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -102,8 +105,10 @@ private fun MainShell(vm: AppViewModel, tab: Int, setTab: (Int) -> Unit) {
     val unseen = suggestions.count { it.to == uid && !it.seen }
 
     Box(Modifier.fillMaxSize()) {
-        when (val top = stack.last()) {
-            Screen.Home -> Scaffold(
+        // Die Startseite bleibt immer im Hintergrund erhalten – so landet man nach „Zurück“
+        // genau wieder an der Stelle in der Liste, wo man war.
+        run {
+            Scaffold(
                 snackbarHost = { SnackbarHost(snack) },
                 topBar = {
                     TopAppBar(
@@ -144,10 +149,26 @@ private fun MainShell(vm: AppViewModel, tab: Int, setTab: (Int) -> Unit) {
                     }
                 }
             }
-            Screen.Search -> SearchScreen(vm, back, { n, id -> open(Screen.Person(n, id)) }) { t, id -> open(Screen.Detail(t, id)) }
-            is Screen.Person -> PersonScreen(vm, top.name, top.id, back) { t, id -> open(Screen.Detail(t, id)) }
-            Screen.Settings -> SettingsScreen(vm, back)
-            is Screen.Detail -> DetailScreen(vm, top.type, top.id, back)
+        }
+        // Weitere Seiten liegen darüber; auch sie behalten ihren Stand, wenn man tiefer geht
+        stack.forEachIndexed { index, screen ->
+            if (index == 0) return@forEachIndexed
+            androidx.compose.runtime.key(index, screen) {
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.background)
+                        .pointerInput(Unit) { detectTapGestures { } }
+                ) {
+                    when (screen) {
+                        Screen.Home -> {}
+                        Screen.Search -> SearchScreen(vm, back, { n, id -> open(Screen.Person(n, id)) }) { t, id -> open(Screen.Detail(t, id)) }
+                        is Screen.Person -> PersonScreen(vm, screen.name, screen.id, back) { t, id -> open(Screen.Detail(t, id)) }
+                        Screen.Settings -> SettingsScreen(vm, back)
+                        is Screen.Detail -> DetailScreen(vm, screen.type, screen.id, back)
+                    }
+                }
+            }
         }
         if (stack.last() != Screen.Home) {
             SnackbarHost(snack, Modifier.align(Alignment.BottomCenter).padding(16.dp))

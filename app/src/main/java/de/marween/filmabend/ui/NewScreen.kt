@@ -438,7 +438,7 @@ private fun MediathekCard(vm: AppViewModel, m: MediathekItem, onPlay: (String, S
             }
             Text(m.name, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
             if (m.isSeries && m.title.isNotBlank()) Text(m.title, style = MaterialTheme.typography.labelMedium, color = Gold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            if (m.description.isNotBlank()) Text(m.description, style = MaterialTheme.typography.bodySmall, maxLines = if (expanded) 30 else 3, overflow = TextOverflow.Ellipsis)
+            if (m.description.isNotBlank()) GermanText(m.description, style = MaterialTheme.typography.bodySmall, maxLines = if (expanded) 30 else 3)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 FilledTonalButton(onClick = { onPlay(m.name, m.video) }, contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)) {
                     Icon(Icons.Filled.PlayArrow, null)
@@ -483,7 +483,7 @@ private fun NewCard(vm: AppViewModel, item: CatalogItem, onOpen: () -> Unit, onT
                 Text(item.title, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 if (item.extra.isNotBlank()) Text(item.extra, style = MaterialTheme.typography.labelMedium, color = Gold)
                 if (item.genres.isNotEmpty()) Text(item.genres.joinToString(", "), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                if (item.overview.isNotBlank()) Text(item.overview, style = MaterialTheme.typography.bodySmall, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                if (item.overview.isNotBlank()) GermanText(item.overview, style = MaterialTheme.typography.bodySmall, maxLines = 3)
                 Spacer(Modifier.height(4.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     FilledTonalButton(onClick = onTrailer, contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)) {
