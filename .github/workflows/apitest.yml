@@ -13,11 +13,11 @@ jobs:
           : > img.txt
           for a in B0HMR5W21J B0HM1HFRH2 B0HGZYZD1H; do
             for u in "https://images-na.ssl-images-amazon.com/images/P/$a.01.LZZZZZZZ.jpg" "https://m.media-amazon.com/images/P/$a.01._SCLZZZZZZZ_.jpg" "https://ws-eu.amazon-adsystem.com/widgets/q?_encoding=UTF8&ASIN=$a&Format=_SL250_&ID=AsinImage&MarketPlace=DE&ServiceVersion=20070822&WS=1"; do
-              curl -sSL -A "Mozilla/5.0" -o x.bin -w "%{http_code} %{size_download} %{content_type} $u\n" "$u" >> img.txt
+              curl -sSL -A "Mozilla/5.0" -o x.bin -w "%{http_code} %{size_download} %{content_type} $u\n" "$u" >> img.txt || echo "fail $u" >> img.txt
             done
           done
           for t in "Die%20Odyssee" "Der%20Chef" "Deep%20Water"; do
-            curl -sS -o x.json -w "itunes %{http_code} %{size_download} $t\n" "https://itunes.apple.com/search?term=$t&country=de&media=movie&entity=movie&limit=3" >> img.txt
+            curl -sS -o x.json -w "itunes %{http_code} %{size_download} $t\n" "https://itunes.apple.com/search?term=$t&country=de&media=movie&entity=movie&limit=3" >> img.txt || true
           done
           git config user.name bot; git config user.email bot@example.com
           git add img.txt && git commit -qm img && git push -q origin apitest
