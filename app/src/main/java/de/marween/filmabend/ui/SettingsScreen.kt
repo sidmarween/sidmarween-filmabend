@@ -51,6 +51,7 @@ private val changelog = listOf(
         "Trailer: neueste deutsche Trailer von Netflix, Prime Video, Disney+, Paramount+, Sky, RTL+ & Kino",
         "DVD & Blu-ray: Neuerscheinungen der letzten 8 Wochen – jetzt mit Cover",
         "Sofort-Benachrichtigung bei neuen Vorschlägen",
+        "WhatsApp-Liste: eure bisher gesehenen Filme & Serien auf einen Tipp übernehmen",
         "Filmdaten jetzt von JustWatch: deutsche Titel, Poster, Trailer und „Läuft bei“",
         "Entdecken: nach Genre stöbern (Comedy, Thriller, Action …) und schnell bewerten",
         "📺 TV-Sendungen privater & öffentlich-rechtlicher Sender, sortiert nach eurem Geschmack",
@@ -115,6 +116,22 @@ fun SettingsScreen(vm: AppViewModel, back: () -> Unit) {
                         Icon(Icons.Filled.Share, null); Text("  Code teilen")
                     }
                 }
+            }
+            SectionCard {
+                Text("WhatsApp-Liste übernehmen", style = MaterialTheme.typography.titleMedium)
+                val n = remember { runCatching { org.json.JSONArray(ctx.assets.open("whatsapp_gesehen.json").bufferedReader().use { it.readText() }).length() }.getOrDefault(0) }
+                var busy by remember { mutableStateOf(false) }
+                var done by remember { mutableStateOf(vm.waImported()) }
+                Text(
+                    "$n Filme & Serien aus eurem WhatsApp-Chat „Filme & Serien“ – werden für euch beide als gesehen abgehakt. " +
+                        "Danach könnt ihr sie in der Bibliothek bewerten oder einzelne wieder abhaken.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Button(enabled = !busy && n > 0, onClick = {
+                    busy = true
+                    vm.importWhatsApp { busy = false; done = true }
+                }) { Text(if (busy) "Wird übernommen …" else if (done) "Nochmal übernehmen" else "Jetzt übernehmen") }
+                if (done) Text("✓ Schon übernommen", color = Gold, style = MaterialTheme.typography.labelMedium)
             }
             SectionCard {
                 Text("Benachrichtigungen", style = MaterialTheme.typography.titleMedium)

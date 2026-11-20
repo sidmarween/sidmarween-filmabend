@@ -624,4 +624,53 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
     }
+
+    /**
+     * Gesehene Titel aus der WhatsApp-Liste (assets/whatsapp_gesehen.json) übernehmen:
+     * Jeder Titel wird für euch beide als gesehen abgehakt.
+     */
+    fun importWhatsApp(onDone: (Int) -> Unit = {}) = run {
+        var count = 0
+        try { count = doImportWhatsApp() } finally { onDone(count) }
+    }
+
+    private suspend fun doImportWhatsApp(): Int {
+        val ref = hhRef() ?: throw IllegalStateException("Erst die gemeinsame Liste verbinden.")
+        val u = uid.value ?: return 0
+        val people = listOfNotNull(u, household.value?.partnerOf(u))
+        val json = getApplication<Application>().assets.open("whatsapp_gesehen.json").bufferedReader().use { it.readText() }
+        val arr = org.json.JSONArray(json)
+        val now = System.currentTimeMillis()
+        var count = 0
+        val items = (0 until arr.length()).mapNotNull { arr.optJSONObject(it) }
+        for (chunk in items.chunked(400)) {
+            db.runBatch { b ->
+                for (o in chunk) {
+                    val title = o.optString("title")
+                    if (title.isBlank()) continue
+                    val type = o.optString("type", "movie")
+                    val id = o.optInt("id").takeIf { it != 0 }
+                        ?: -((("mt:" + normName(title)).hashCode() and 0x3fffffff) + 1)
+                    val genres = o.optJSONArray("genres")?.let { g -> (0 until g.length()).map { g.optString(it) } } ?: emptyList()
+                    val data = hashMapOf<String, Any?>(
+                        "mediaId" to id, "type" to type, "title" to title,
+                        "year" to o.optString("year", ""), "poster" to o.optString("poster", ""),
+                        "overview" to o.optString("overview", ""),
+                        "watched" to people.associateWith { true },
+                        "watchedAt" to people.associateWith { now },
+                        "source" to "WhatsApp",
+                    )
+                    if (genres.isNotEmpty()) data["genres"] = genres
+                    if (titleFor(keyOf(type, id)) == null) data["addedAt"] = now
+                    b.set(ref.collection("titles").document(keyOf(type, id)), data, SetOptions.merge())
+                    count++
+                }
+            }.await()
+        }
+        prefs.edit().putBoolean("waImported", true).apply()
+        message.value = "$count Titel aus WhatsApp als gesehen abgehakt ✓"
+        return count
+    }
+
+    fun waImported() = prefs.getBoolean("waImported", false)
 }
