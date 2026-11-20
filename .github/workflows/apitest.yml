@@ -10,11 +10,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: |
-          curl -sS -X POST https://mediathekviewweb.de/api/query -H "Content-Type: text/plain" \
-            --data '{"queries":[{"fields":["channel"],"query":"zdf"}],"sortBy":"timestamp","sortOrder":"desc","future":false,"duration_min":4800,"offset":0,"size":15}' > mvw.json || true
-          curl -sS -X POST https://mediathekviewweb.de/api/query -H "Content-Type: text/plain" \
-            --data '{"queries":[{"fields":["title"],"query":"Folge"}],"sortBy":"timestamp","sortOrder":"desc","future":false,"duration_min":1200,"duration_max":4200,"offset":0,"size":15}' > mvw2.json || true
-          curl -sS "https://itunes.apple.com/search?term=inception&country=de&media=movie&entity=movie&limit=1&lang=de_de" > it_de.json
-          curl -sS "https://itunes.apple.com/search?term=inception&country=de&media=movie&entity=movie&limit=1" > it_nolang.json
+          q() { curl -sS -X POST https://mediathekviewweb.de/api/query -H "Content-Type: text/plain" --data "$2" > $1 || true; }
+          q f1.json '{"queries":[{"fields":["topic"],"query":"film"}],"sortBy":"timestamp","sortOrder":"desc","future":false,"duration_min":4500,"offset":0,"size":200}'
+          q s1.json '{"queries":[],"sortBy":"timestamp","sortOrder":"desc","future":false,"duration_min":1200,"duration_max":4000,"offset":0,"size":500}'
+          q t1.json '{"queries":[{"fields":["title"],"query":"trailer"}],"sortBy":"timestamp","sortOrder":"desc","future":false,"offset":0,"size":50}'
           git config user.name bot; git config user.email bot@example.com
-          git add *.json && git commit -qm out && git push -q origin apitest
+          git rm -q --cached *.json 2>/dev/null; git add *.json && git commit -qm out2 && git push -q origin apitest
