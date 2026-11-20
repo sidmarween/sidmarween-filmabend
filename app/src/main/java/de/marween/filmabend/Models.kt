@@ -6,7 +6,7 @@ import java.util.Locale
 /** Ein Film oder eine Serie in eurer gemeinsamen Bibliothek (Firestore). */
 data class Title(
     val key: String,
-    val tmdbId: Int,
+    val mediaId: Int,
     val type: String,               // "movie" oder "tv"
     val title: String,
     val year: String,
@@ -26,15 +26,15 @@ data class Title(
     fun rating(uid: String?): Int? = uid?.let { ratings[it] }
     fun avgRating(): Double? = ratings.values.takeIf { it.isNotEmpty() }?.average()
     fun seasonsOf(uid: String?): List<Int> = uid?.let { seasonsWatched[it] } ?: emptyList()
-    val info get() = TitleInfo(tmdbId, type, title, year, poster, overview, genres, seasons)
+    val info get() = TitleInfo(mediaId, type, title, year, poster, overview, genres, seasons)
 
     companion object {
         fun from(doc: DocumentSnapshot): Title? {
-            val id = (doc.get("tmdbId") as? Number)?.toInt() ?: return null
+            val id = (doc.get("mediaId") as? Number)?.toInt() ?: return null
             val type = doc.getString("type") ?: return null
             return Title(
                 key = doc.id,
-                tmdbId = id,
+                mediaId = id,
                 type = type,
                 title = doc.getString("title") ?: "",
                 year = doc.getString("year") ?: "",
@@ -69,7 +69,7 @@ data class Title(
 
 /** Grunddaten eines Titels – reicht, um ihn in der Bibliothek anzulegen. */
 data class TitleInfo(
-    val tmdbId: Int,
+    val mediaId: Int,
     val type: String,
     val title: String,
     val year: String,
@@ -78,7 +78,7 @@ data class TitleInfo(
     val genres: List<String> = emptyList(),
     val seasons: Int = 0,
 ) {
-    val key get() = keyOf(type, tmdbId)
+    val key get() = keyOf(type, mediaId)
 }
 
 fun keyOf(type: String, id: Int) = "${type}_$id"
@@ -88,7 +88,7 @@ data class Suggestion(
     val from: String,
     val to: String,
     val key: String,
-    val tmdbId: Int,
+    val mediaId: Int,
     val type: String,
     val title: String,
     val year: String,
@@ -100,13 +100,13 @@ data class Suggestion(
 ) {
     companion object {
         fun from(doc: DocumentSnapshot): Suggestion? {
-            val id = (doc.get("tmdbId") as? Number)?.toInt() ?: return null
+            val id = (doc.get("mediaId") as? Number)?.toInt() ?: return null
             return Suggestion(
                 id = doc.id,
                 from = doc.getString("from") ?: "",
                 to = doc.getString("to") ?: "",
                 key = doc.getString("key") ?: "",
-                tmdbId = id,
+                mediaId = id,
                 type = doc.getString("type") ?: "movie",
                 title = doc.getString("title") ?: "",
                 year = doc.getString("year") ?: "",

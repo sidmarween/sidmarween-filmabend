@@ -44,15 +44,15 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import de.marween.filmabend.AppViewModel
-import de.marween.filmabend.Tmdb
-import de.marween.filmabend.TmdbItem
+import de.marween.filmabend.Catalog
+import de.marween.filmabend.CatalogItem
 import de.marween.filmabend.typeLabel
 import kotlinx.coroutines.delay
 
 @Composable
 fun SearchScreen(vm: AppViewModel, back: () -> Unit, openDetail: (String, Int) -> Unit) {
     var query by rememberSaveable { mutableStateOf("") }
-    var results by remember { mutableStateOf<List<TmdbItem>>(emptyList()) }
+    var results by remember { mutableStateOf<List<CatalogItem>>(emptyList()) }
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     val focus = remember { FocusRequester() }
@@ -62,7 +62,7 @@ fun SearchScreen(vm: AppViewModel, back: () -> Unit, openDetail: (String, Int) -
         if (query.trim().length < 2) { results = emptyList(); return@LaunchedEffect }
         delay(400)
         loading = true; error = null
-        try { results = Tmdb.search(query.trim()) } catch (e: Exception) { error = e.localizedMessage }
+        try { results = Catalog.search(query.trim()) } catch (e: Exception) { error = e.localizedMessage }
         loading = false
     }
 
@@ -80,10 +80,6 @@ fun SearchScreen(vm: AppViewModel, back: () -> Unit, openDetail: (String, Int) -
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).focusRequester(focus)
             )
             when {
-                !Tmdb.configured -> EmptyHint(
-                    "Filmdatenbank nicht verbunden",
-                    "In diese App-Version wurde noch kein TMDB-Schlüssel eingebaut. Siehe Anleitung im GitHub-Projekt."
-                )
                 loading && results.isEmpty() -> Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
                 error != null -> EmptyHint("Hoppla", error ?: "")
                 query.length >= 2 && results.isEmpty() && !loading -> EmptyHint("Nichts gefunden", "Probier einen anderen Suchbegriff.")
@@ -97,12 +93,13 @@ fun SearchScreen(vm: AppViewModel, back: () -> Unit, openDetail: (String, Int) -
     }
 }
 
-/** Zeile für einen TMDB-Treffer mit Schnell-Knöpfen „Gesehen“ und „Merken“. */
+/** Zeile für einen Treffer mit Schnell-Knöpfen „Gesehen“ und „Merken“. */
 @Composable
-fun ItemRow(vm: AppViewModel, item: TmdbItem, extra: String? = null, trailing: (@Composable () -> Unit)? = null, onClick: () -> Unit) {
+fun ItemRow(vm: AppViewModel, item: CatalogItem, extra: String? = null, trailing: (@Composable () -> Unit)? = null, onClick: () -> Unit) {
     val uid by vm.uid.collectAsStateWithLifecycle()
     val titles by vm.titles.collectAsStateWithLifecycle()
     val t = titles.firstOrNull { it.key == item.key }
+        ?: if (!item.resolved) titles.firstOrNull { it.type == "tv" && de.marween.filmabend.normName(it.title) == de.marween.filmabend.normName(item.title) } else null
     val watched = t?.isWatched(uid) == true
     val listed = t?.onWatchlist(uid) == true
 
@@ -115,7 +112,7 @@ fun ItemRow(vm: AppViewModel, item: TmdbItem, extra: String? = null, trailing: (
         Column(Modifier.weight(1f)) {
             Text(item.title, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Text(
-                listOf(typeLabel(item.type), item.year, if (item.vote > 0) "TMDB ${de.marween.filmabend.fmt1(item.vote)}" else "")
+                listOf(typeLabel(item.type), item.year, if (item.vote > 0) "★ ${de.marween.filmabend.fmt1(item.vote)}" else "")
                     .filter { it.isNotBlank() }.joinToString(" · "),
                 style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -123,10 +120,14 @@ fun ItemRow(vm: AppViewModel, item: TmdbItem, extra: String? = null, trailing: (
             t?.rating(uid)?.let { Text("Deine Wertung: $it/10", style = MaterialTheme.typography.labelSmall, color = Gold) }
         }
         trailing?.invoke()
-        IconButton(onClick = { vm.setWatchlist(item.info, !listed) }) {
+        IconButton(onClick = {
+            if (t != null) vm.setWatchlist(t.info, !listed) else vm.withResolved(item) { vm.setWatchlist(it.info, true) }
+        }) {
             Icon(if (listed) Icons.Filled.Bookmark else Icons.Filled.BookmarkBorder, "Merken", tint = if (listed) Rose else MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        IconButton(onClick = { vm.setWatched(t?.info ?: item.info, !watched) }) {
+        IconButton(onClick = {
+            if (t != null) vm.setWatched(t.info, !watched) else vm.withResolved(item) { vm.setWatched(it.info, true) }
+        }) {
             Icon(if (watched) Icons.Filled.CheckCircle else Icons.Filled.CheckCircleOutline, "Gesehen", tint = if (watched) Gold else MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }

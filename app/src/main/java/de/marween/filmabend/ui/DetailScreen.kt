@@ -60,8 +60,8 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import de.marween.filmabend.AppViewModel
 import de.marween.filmabend.TitleInfo
-import de.marween.filmabend.Tmdb
-import de.marween.filmabend.TmdbDetail
+import de.marween.filmabend.Catalog
+import de.marween.filmabend.CatalogDetail
 import de.marween.filmabend.fmt1
 import de.marween.filmabend.keyOf
 import de.marween.filmabend.ratingWord
@@ -76,14 +76,12 @@ fun DetailScreen(vm: AppViewModel, type: String, id: Int, back: () -> Unit) {
     val partner = hh?.partnerOf(uid)
     val pName = partner?.let { hh?.nameOf(it) } ?: "Partner"
 
-    var detail by remember { mutableStateOf<TmdbDetail?>(null) }
+    var detail by remember { mutableStateOf<CatalogDetail?>(null) }
     var loadError by remember { mutableStateOf<String?>(null) }
     var showSuggest by remember { mutableStateOf(false) }
 
     LaunchedEffect(type, id) {
-        if (Tmdb.configured) {
-            try { detail = Tmdb.details(type, id) } catch (e: Exception) { loadError = e.localizedMessage }
-        }
+        try { detail = Catalog.details(type, id) } catch (e: Exception) { loadError = e.localizedMessage }
     }
 
     val info: TitleInfo? = detail?.info ?: t?.info
@@ -117,9 +115,10 @@ fun DetailScreen(vm: AppViewModel, type: String, id: Int, back: () -> Unit) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     detail?.let { d ->
-                        if (d.item.vote > 0) Text("TMDB: ${fmt1(d.item.vote)}/10", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (d.item.vote > 0) Text("Bewertung im Netz: ${fmt1(d.item.vote)}/10", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         if (d.runtime > 0) Text(if (info.type == "tv") "ca. ${d.runtime} Min. pro Folge" else "${d.runtime} Min.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         if (d.seasons > 0) Text("${d.seasons} Staffel${if (d.seasons == 1) "" else "n"}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (d.status.isNotBlank()) Text("Serie ${d.status}", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         if (d.genres.isNotEmpty()) Text(d.genres.joinToString(", "), style = MaterialTheme.typography.labelMedium, color = Gold)
                     }
                 }
@@ -180,10 +179,10 @@ fun DetailScreen(vm: AppViewModel, type: String, id: Int, back: () -> Unit) {
                 }
             }
 
-            detail?.providers?.takeIf { it.isNotEmpty() }?.let { prov ->
+            detail?.network?.takeIf { it.isNotBlank() }?.let { net ->
                 SectionCard {
-                    Text("Im Abo bei", style = MaterialTheme.typography.titleMedium)
-                    Text(prov.joinToString(" · "), color = Gold)
+                    Text("Sender / Streamingdienst", style = MaterialTheme.typography.titleMedium)
+                    Text(net, color = Gold)
                 }
             }
 
@@ -195,15 +194,12 @@ fun DetailScreen(vm: AppViewModel, type: String, id: Int, back: () -> Unit) {
                 }
             }
 
-            detail?.tagline?.takeIf { it.isNotBlank() }?.let {
-                Text("„$it“", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
             val overview = detail?.item?.overview?.ifBlank { null } ?: info.overview
             if (overview.isNotBlank()) {
                 Text("Worum geht's?", style = MaterialTheme.typography.titleMedium)
                 Text(overview, style = MaterialTheme.typography.bodyMedium)
             }
-            Text("Daten: The Movie Database (TMDB)", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(if (info.type == "tv") "Seriendaten: TVmaze.com" else "Filmdaten: Apple iTunes Store", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 

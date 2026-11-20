@@ -73,7 +73,7 @@ fun PostScreen(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
                         otherName = hh?.nameOf(if (tab == 0) s.from else s.to) ?: "",
                         watchedByMe = t?.isWatched(uid) == true,
                         watchedByOther = t?.isWatched(if (tab == 0) s.from else s.to) == true,
-                        onOpen = { openDetail(s.type, s.tmdbId) },
+                        onOpen = { openDetail(s.type, s.mediaId) },
                         onAccept = { vm.answerSuggestion(s, true) },
                         onDecline = { vm.answerSuggestion(s, false) },
                         onDelete = { vm.deleteSuggestion(s) },

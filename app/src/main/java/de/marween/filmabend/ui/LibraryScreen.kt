@@ -77,7 +77,7 @@ fun LibraryScreen(vm: AppViewModel, openDetail: (String, Int) -> Unit, openSearc
                 modifier = Modifier.fillMaxSize()
             ) {
                 items(list, key = { it.key }) { t ->
-                    TitleCard(t, uid, partner, who == 3, hh?.nameOf(partner)) { openDetail(t.type, t.tmdbId) }
+                    TitleCard(t, uid, partner, who == 3, hh?.nameOf(partner)) { openDetail(t.type, t.mediaId) }
                 }
             }
         }

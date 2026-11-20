@@ -101,12 +101,12 @@ fun ChartsScreen(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
         }
         item { Header("🏆 Top ${top.size}") }
         top.forEachIndexed { i, (t, s) ->
-            item(key = "top_${t.key}") { RankRow(i + 1, t, s, uid, partner, myName, pName) { openDetail(t.type, t.tmdbId) } }
+            item(key = "top_${t.key}") { RankRow(i + 1, t, s, uid, partner, myName, pName) { openDetail(t.type, t.mediaId) } }
         }
         if (flop.isNotEmpty()) {
             item { Header("🍅 Flop – lieber nicht nochmal") }
             flop.forEachIndexed { i, (t, s) ->
-                item(key = "flop_${t.key}") { RankRow(i + 1, t, s, uid, partner, myName, pName) { openDetail(t.type, t.tmdbId) } }
+                item(key = "flop_${t.key}") { RankRow(i + 1, t, s, uid, partner, myName, pName) { openDetail(t.type, t.mediaId) } }
             }
         }
         if (disagree.isNotEmpty()) {
@@ -114,7 +114,7 @@ fun ChartsScreen(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
             disagree.forEach { (t, a, b) ->
                 item(key = "dis_${t.key}") {
                     Row(
-                        Modifier.fillMaxWidth().clickable { openDetail(t.type, t.tmdbId) }.padding(horizontal = 16.dp, vertical = 8.dp),
+                        Modifier.fillMaxWidth().clickable { openDetail(t.type, t.mediaId) }.padding(horizontal = 16.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {

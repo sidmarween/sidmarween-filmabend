@@ -34,7 +34,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import de.marween.filmabend.Tmdb
+import de.marween.filmabend.Catalog
 
 val Gold = Color(0xFFF5B841)
 val Rose = Color(0xFFE85D75)
@@ -77,7 +77,7 @@ fun Poster(path: String?, type: String, modifier: Modifier = Modifier, corner: D
         )
         if (path != null) {
             AsyncImage(
-                model = Tmdb.poster(path), contentDescription = null,
+                model = path, contentDescription = null,
                 contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()
             )
         }

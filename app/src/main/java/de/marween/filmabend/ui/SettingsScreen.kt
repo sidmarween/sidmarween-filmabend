@@ -47,7 +47,8 @@ private val changelog = listOf(
         "Erste Version: gemeinsame Bibliothek für Filme & Serien",
         "Abhaken, Merkliste, Staffeln pro Person",
         "Bewertung 1–10 und Charts (Top, Flop, uneinig, Statistik)",
-        "Vorschläge nach eurem Geschmack (TMDB)",
+        "Vorschläge nach eurem Geschmack",
+        "Filmdaten ohne Schlüssel: Apple iTunes (Filme) und TVmaze (Serien)",
         "Gegenseitig Titel vorschlagen inkl. Benachrichtigung",
     ),
 )
@@ -100,7 +101,7 @@ fun SettingsScreen(vm: AppViewModel, back: () -> Unit) {
             SectionCard {
                 Text("Info", style = MaterialTheme.typography.titleMedium)
                 Text("Filmabend ${BuildConfig.VERSION_NAME}", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("Film- und Seriendaten: The Movie Database (TMDB). Diese App nutzt die TMDB-API, ist aber nicht von TMDB unterstützt oder zertifiziert.",
+                Text("Filmdaten: Apple iTunes Store (Deutschland). Seriendaten: TVmaze.com (CC BY-SA).",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 changelog.forEach { (v, items) ->
                     Text("Version $v", fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp))

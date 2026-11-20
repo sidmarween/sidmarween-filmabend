@@ -54,7 +54,7 @@ fun DiscoverScreen(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
         ChipRow(TypeFilters, type, { type = it }, Modifier.padding(top = 2.dp))
         if (state.fallback && !state.loading) {
             Text(
-                "Bewertet ein paar Titel mit 7 oder mehr – dann werden die Vorschläge auf euren Geschmack zugeschnitten. Bis dahin: was gerade angesagt ist.",
+                "Bewertet ein paar Titel mit 7 oder mehr – dann werden die Vorschläge auf euren Geschmack zugeschnitten. Bis dahin: was gerade in den Charts ist.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
@@ -78,12 +78,12 @@ fun DiscoverScreen(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
                         vm, rec.item, extra = rec.reason,
                         trailing = {
                             if (partner != null) {
-                                IconButton(onClick = { vm.suggest(rec.item.info, "") }) {
+                                IconButton(onClick = { vm.withResolved(rec.item) { vm.suggest(it.info, "") } }) {
                                     Icon(Icons.AutoMirrored.Filled.Send, "$pName vorschlagen", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
                         }
-                    ) { openDetail(rec.item.type, rec.item.id) }
+                    ) { vm.withResolved(rec.item) { openDetail(it.type, it.id) } }
                 }
             }
         }

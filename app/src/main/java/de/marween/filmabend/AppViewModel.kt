@@ -17,7 +17,7 @@ import kotlinx.coroutines.tasks.await
 
 enum class RecMode { BOTH, ME, PARTNER }
 
-data class Rec(val item: TmdbItem, val score: Double, val reason: String)
+data class Rec(val item: CatalogItem, val score: Double, val reason: String)
 
 data class RecState(
     val loading: Boolean = false,
@@ -175,7 +175,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun meta(i: TitleInfo, existing: Title?): MutableMap<String, Any?> {
         val m = mutableMapOf<String, Any?>(
-            "tmdbId" to i.tmdbId,
+            "mediaId" to i.mediaId,
             "type" to i.type,
             "title" to i.title,
             "year" to i.year,
@@ -248,7 +248,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val u = uid.value ?: return@run
         val to = household.value?.partnerOf(u) ?: throw IllegalStateException("Dein Partner ist noch nicht verbunden.")
         ref.collection("suggestions").add(mapOf(
-            "from" to u, "to" to to, "key" to i.key, "tmdbId" to i.tmdbId, "type" to i.type,
+            "from" to u, "to" to to, "key" to i.key, "mediaId" to i.mediaId, "type" to i.type,
             "title" to i.title, "year" to i.year, "poster" to (i.poster ?: ""), "note" to note.trim(),
             "createdAt" to System.currentTimeMillis(), "status" to "offen", "seen" to false, "notified" to false,
         )).await()
@@ -262,7 +262,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             ref.collection("suggestions").document(s.id)
                 .update(mapOf("status" to if (accept) "angenommen" else "abgelehnt", "seen" to true, "notified" to true)).await()
         }
-        if (accept) setWatchlist(TitleInfo(s.tmdbId, s.type, s.title, s.year, s.poster, ""), true)
+        if (accept) setWatchlist(TitleInfo(s.mediaId, s.type, s.title, s.year, s.poster, ""), true)
     }
 
     fun deleteSuggestion(s: Suggestion) = run {
@@ -281,78 +281,84 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     // ---------- Empfehlungen nach eurem Geschmack ----------
 
+    /** Für Serien aus den Charts erst die echte Serie nachschlagen, dann [action] ausführen. */
+    fun withResolved(item: CatalogItem, action: (CatalogItem) -> Unit) = run {
+        action(Catalog.resolve(item))
+    }
+
     fun loadRecs(mode: RecMode) {
         val u = uid.value ?: return
         val p = household.value?.partnerOf(u)
+        val pName = household.value?.nameOf(p) ?: "Partner"
         val people = when (mode) {
             RecMode.ME -> listOf(u)
             RecMode.PARTNER -> listOfNotNull(p)
             RecMode.BOTH -> listOfNotNull(u, p)
         }
-        if (!Tmdb.configured) {
-            recs.value = RecState(error = "Für Vorschläge fehlt der TMDB-Schlüssel (siehe Anleitung).")
-            return
-        }
         recs.value = recs.value.copy(loading = true, error = null)
         viewModelScope.launch {
             try {
                 val lib = titles.value
-                // Was haben die Personen gut bewertet? Gewicht: 7 -> 1, 10 -> 4
-                data class Source(val t: Title, val weight: Double, val person: String)
-                val sources = lib.flatMap { t ->
-                    people.mapNotNull { who -> t.rating(who)?.takeIf { it >= 7 }?.let { Source(t, (it - 6).toDouble(), who) } }
+                // Geschmack pro Genre: gute Wertungen zählen positiv, schlechte negativ
+                val taste = HashMap<String, Double>()
+                val example = HashMap<String, Pair<String, Int>>()
+                for (t in lib) for (who in people) {
+                    val r = t.rating(who) ?: continue
+                    for (g in t.genres.map { Catalog.genre(it) }.distinct()) {
+                        taste[g] = (taste[g] ?: 0.0) + (r - 5.5)
+                        if (r >= 7 && (example[g]?.second ?: 0) < r) example[g] = t.title to r
+                    }
                 }
-                val bySource = sources.groupBy { it.t.key }
-                    .map { (_, s) -> s.first().t to s }
-                    .sortedByDescending { (_, s) -> s.sumOf { it.weight } }
-                    .take(12)
+                val liked = taste.entries.filter { it.value > 0 }.sortedByDescending { it.value }.take(4)
 
-                val exclude = lib.filter { t -> people.any { t.isWatched(it) } }.map { it.key }.toSet()
-                val disliked = lib.filter { t -> people.any { (t.rating(it) ?: 10) <= 3 } }.map { it.key }.toSet()
+                val seenKeys = lib.filter { t -> people.any { t.isWatched(it) || (t.rating(it) ?: 10) <= 3 } }
+                    .map { it.key }.toSet()
+                val seenShowNames = lib.filter { t -> t.type == "tv" && people.any { t.isWatched(it) } }
+                    .map { normName(it.title) }.toSet()
+                fun excluded(i: CatalogItem) =
+                    i.key in seenKeys || (i.type == "tv" && normName(i.title) in seenShowNames)
 
-                if (bySource.isEmpty()) {
-                    val trending = Tmdb.trending().filter { it.key !in exclude }
-                    recs.value = RecState(items = trending.map { Rec(it, it.vote, "Gerade angesagt") }, fallback = true)
+                if (liked.isEmpty()) {
+                    val lists = listOf("movie", "tv").map { type ->
+                        async { runCatching { Catalog.charts(type, null, 40) }.getOrDefault(emptyList()) }
+                    }.awaitAll()
+                    val mixed = ArrayList<CatalogItem>()
+                    for (i in 0 until lists.maxOf { it.size }) lists.forEach { l -> if (i < l.size) mixed += l[i] }
+                    val items = mixed.filterNot { excluded(it) }.distinctBy { it.key }
+                    if (items.isEmpty()) throw IllegalStateException("Filmdaten gerade nicht erreichbar. Bitte später nochmal.")
+                    recs.value = RecState(items = items.map { Rec(it, 0.0, "Gerade beliebt") }, fallback = true)
                     return@launch
                 }
 
-                val results = bySource.map { (t, s) ->
-                    async { runCatching { Triple(t, s, Tmdb.recommendations(t.type, t.tmdbId)) }.getOrNull() }
-                }.awaitAll().filterNotNull()
+                val results = liked.flatMap { e ->
+                    listOf("movie", "tv").map { type ->
+                        async { Triple(e.key, e.value, runCatching { Catalog.charts(type, e.key, 40) }.getOrDefault(emptyList())) }
+                    }
+                }.awaitAll()
 
                 val score = HashMap<String, Double>()
-                val items = HashMap<String, TmdbItem>()
-                val reasonTitle = HashMap<String, Pair<String, Double>>()
-                val fans = HashMap<String, MutableSet<String>>()
-                for ((t, s, list) in results) {
-                    val w = s.sumOf { it.weight }
+                val items = HashMap<String, CatalogItem>()
+                val why = HashMap<String, String>()
+                for ((g, w, list) in results) {
                     list.forEachIndexed { idx, item ->
-                        if (item.key in exclude || item.key in disliked) return@forEachIndexed
-                        val add = w * (1.0 - idx * 0.03).coerceAtLeast(0.3)
+                        if (excluded(item)) return@forEachIndexed
+                        val add = w * (1.0 - idx * 0.015).coerceAtLeast(0.3)
                         score[item.key] = (score[item.key] ?: 0.0) + add
                         items[item.key] = item
-                        fans.getOrPut(item.key) { mutableSetOf() } += s.map { it.person }
-                        val best = reasonTitle[item.key]
-                        if (best == null || add > best.second) reasonTitle[item.key] = t.title to add
+                        if (why[item.key] == null) why[item.key] = g
                     }
                 }
-                val h = household.value
+                if (items.isEmpty()) throw IllegalStateException("Filmdaten gerade nicht erreichbar. Bitte später nochmal.")
                 val ranked = score.entries.map { (k, sc) ->
-                    // Passt zu beiden? Dann Bonus.
-                    val bonus = if (mode == RecMode.BOTH && (fans[k]?.size ?: 0) >= 2) 1.5 else 1.0
-                    val item = items.getValue(k)
-                    val reasonName = reasonTitle[k]?.first ?: ""
-                    val who = when {
-                        mode == RecMode.BOTH && (fans[k]?.size ?: 0) >= 2 -> "Passt zu euch beiden"
-                        mode == RecMode.BOTH -> {
-                            val person = fans[k]?.firstOrNull()
-                            if (person == u) "Weil du „$reasonName“ mochtest" else "Weil ${h?.nameOf(person)} „$reasonName“ mochte"
-                        }
-                        mode == RecMode.ME -> "Weil du „$reasonName“ mochtest"
-                        else -> "Weil ${h?.nameOf(p)} „$reasonName“ mochte"
+                    val g = why[k] ?: ""
+                    val ex = example[g]?.first?.let { " – wie „$it“" } ?: ""
+                    val reason = when (mode) {
+                        RecMode.BOTH -> "Euer Genre: $g$ex"
+                        RecMode.ME -> "Du magst $g$ex"
+                        RecMode.PARTNER -> "$pName mag $g$ex"
                     }
-                    Rec(item, sc * bonus + item.vote / 10.0, who)
-                }.sortedByDescending { it.score }.take(60)
+                    Rec(items.getValue(k), sc, reason)
+                }.sortedByDescending { it.score }.take(80)
                 recs.value = RecState(items = ranked)
             } catch (e: Exception) {
                 recs.value = RecState(error = e.localizedMessage ?: "Vorschläge konnten nicht geladen werden")

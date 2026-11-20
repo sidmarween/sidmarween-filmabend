@@ -7,8 +7,6 @@ plugins {
 
 // Jeder GitHub-Build bekommt automatisch eine höhere Versionsnummer
 val buildNumber = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
-// TMDB-Schlüssel kommt aus dem GitHub-Secret TMDB_API_KEY (nicht im Code speichern)
-val tmdbKey = (System.getenv("TMDB_API_KEY") ?: "").trim()
 
 android {
     namespace = "de.marween.filmabend"
@@ -20,7 +18,6 @@ android {
         targetSdk = 35
         versionCode = buildNumber
         versionName = "1.0.$buildNumber"
-        buildConfigField("String", "TMDB_API_KEY", "\"$tmdbKey\"")
     }
 
     buildFeatures {

@@ -29,7 +29,7 @@ jobs:
           GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
         run: |
           if [ -z "$GOOGLE_SERVICES_JSON" ]; then
-            echo "::warning::Secret GOOGLE_SERVICES_JSON fehlt (README, Schritt 3) – nur Testbau, keine Veröffentlichung."
+            echo "::warning::Secret GOOGLE_SERVICES_JSON fehlt (README, Schritt 2) – nur Testbau, keine Veröffentlichung."
             cat > app/google-services.json <<'JSON'
           {"project_info":{"project_number":"1","project_id":"test-build","storage_bucket":"test-build.appspot.com"},
            "client":[{"client_info":{"mobilesdk_app_id":"1:1:android:0000000000000000","android_client_info":{"package_name":"de.marween.filmabend"}},
@@ -43,8 +43,6 @@ jobs:
           fi
 
       - name: APK bauen
-        env:
-          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
         run: gradle :app:assembleRelease --no-daemon --stacktrace
 
       - name: APK umbenennen
