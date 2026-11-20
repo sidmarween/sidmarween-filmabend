@@ -44,9 +44,11 @@ object German {
                 translator.downloadModelIfNeeded(DownloadConditions.Builder().build()).await()
                 modelReady = true
             }
-            text.split("\n").joinToString("\n") { line ->
-                if (line.isBlank()) line else translator.translate(line).await()
+            val parts = ArrayList<String>()
+            for (line in text.split("\n")) {
+                parts += if (line.isBlank()) line else translator.translate(line).await()
             }
+            parts.joinToString("\n")
         }
         cache[text] = out
         return out
