@@ -11,9 +11,15 @@ jobs:
       - uses: actions/checkout@v4
       - run: |
           : > img.txt
-          for u in "https://itunes.apple.com/search?term=Odyssee&country=de&media=movie&entity=movie&limit=2" "https://itunes.apple.com/search?term=Odyssee&country=de&media=movie&limit=2" "https://itunes.apple.com/search?term=Odyssee&media=movie&limit=2" "https://itunes.apple.com/search?term=Barbie&country=de&media=movie&entity=movie&limit=2" "https://itunes.apple.com/search?term=Barbie&country=us&media=movie&entity=movie&limit=2" "https://itunes.apple.com/search?term=Tom+Hanks&country=de&media=movie&entity=movie&attribute=actorTerm&limit=2" "https://itunes.apple.com/lookup?id=1873271169&country=de" "https://itunes.apple.com/search?term=Barbie&country=de&entity=movie&limit=2"; do
-            echo "== $u" >> img.txt
-            curl -sS "$u" | head -c 400 >> img.txt || true
+          cat > q1.json <<'JSON'
+{"query":"query($country:Country!,$language:Language!,$first:Int!,$filter:TitleFilter){popularTitles(country:$country,first:$first,filter:$filter){edges{node{id objectId objectType content(country:$country,language:$language){title originalReleaseYear posterUrl shortDescription genres{shortName translation(language:$language)} externalIds{imdbId} scoring{imdbScore} clips{externalId provider}}}}}}","variables":{"country":"DE","language":"de","first":3,"filter":{"searchQuery":"Barbie"}}}
+JSON
+          cat > q2.json <<'JSON'
+{"query":"query($country:Country!,$language:Language!,$first:Int!,$filter:TitleFilter){popularTitles(country:$country,first:$first,filter:$filter){edges{node{objectId objectType content(country:$country,language:$language){title originalReleaseYear posterUrl}}}}}","variables":{"country":"DE","language":"de","first":5,"filter":{"objectTypes":["MOVIE"],"genres":["cmy"]}}}
+JSON
+          for f in q1 q2; do
+            echo "== $f" >> img.txt
+            curl -sS -X POST https://apis.justwatch.com/graphql -H "Content-Type: application/json" -A "Mozilla/5.0" --data @$f.json | head -c 3000 >> img.txt || true
             echo >> img.txt
           done
           git config user.name bot; git config user.email bot@example.com
