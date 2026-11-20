@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Leaderboard
 import androidx.compose.material.icons.filled.Mail
 import androidx.compose.material.icons.filled.Movie
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.VideoLibrary
@@ -112,6 +113,7 @@ private fun MainShell(vm: AppViewModel, tab: Int, setTab: (Int) -> Unit) {
                             )
                         },
                         actions = {
+                            if (tab == 2) IconButton(onClick = { vm.refreshAll() }) { Icon(Icons.Filled.Refresh, "Alles aktualisieren") }
                             IconButton(onClick = { open(Screen.Search) }) { Icon(Icons.Filled.Search, "Suchen") }
                             IconButton(onClick = { open(Screen.Settings) }) { Icon(Icons.Filled.Settings, "Einstellungen") }
                         },

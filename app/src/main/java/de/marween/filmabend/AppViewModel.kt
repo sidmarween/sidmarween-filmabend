@@ -494,4 +494,15 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val hit = TitleLookup.find(title) ?: throw IllegalStateException("„$title“ wurde in der Filmdatenbank nicht gefunden.")
         action(Catalog.resolve(hit))
     }
+
+    /** Alle Seiten unter „Neu“ frisch laden – neueste Trailer, Neuheiten, Mediatheken, DVDs. */
+    fun refreshAll() {
+        message.value = "Alles wird aktualisiert …"
+        loadTrailers(force = true)
+        loadNew("movie", force = true)
+        loadNew("tv", force = true)
+        loadDiscs(force = true)
+        loadMediathek(series = false, force = true)
+        loadMediathek(series = true, force = true)
+    }
 }

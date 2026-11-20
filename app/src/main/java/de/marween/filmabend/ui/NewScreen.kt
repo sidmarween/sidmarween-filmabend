@@ -86,6 +86,20 @@ fun NewScreen(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
 
     Column(Modifier.fillMaxSize()) {
         ChipRow(listOf("Neue Filme", "Neue Serien", "Trailer", "Mediatheken", "DVD & Blu-ray"), type, { type = it })
+        val anyLoading = listOf(
+            vm.trailers.collectAsStateWithLifecycle().value.loading,
+            movies.loading, shows.loading,
+            vm.discs.collectAsStateWithLifecycle().value.loading,
+            vm.mtFilms.collectAsStateWithLifecycle().value.loading,
+            vm.mtSeries.collectAsStateWithLifecycle().value.loading,
+        ).any { it }
+        androidx.compose.material3.OutlinedButton(
+            onClick = { vm.refreshAll() }, enabled = !anyLoading,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
+        ) {
+            Icon(Icons.Filled.Refresh, null)
+            Text(if (anyLoading) "  Wird aktualisiert …" else "  Alles aktualisieren (neueste Trailer & Neuheiten)")
+        }
         if (type == 4) {
             DiscList(vm, openDetail)
         } else if (type == 2) {
