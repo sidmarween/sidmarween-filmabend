@@ -1,1 +1,1 @@
-{"query": "query($id:ID!,$country:Country!,$language:Language!){node(id:$id){id ... on MovieOrShow{offers(country:$country,platform:WEB){monetizationType package{clearName}}}}}", "variables": {"id": "tm244331", "country": "DE", "language": "de"}}
+{"query": "query($id:ID!,$country:Country!){node(id:$id){id ... on MovieOrShow{offers(country:$country,platform:WEB){monetizationType package{clearName}}}}}", "variables": {"id": "tm244331", "country": "DE"}}
