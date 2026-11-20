@@ -10,11 +10,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: |
-          : > img.txt
-          for f in q3; do
-            echo "== $f" >> img.txt
-            curl -sS -X POST https://apis.justwatch.com/graphql -H "Content-Type: application/json" -A "Mozilla/5.0" --data @$f.json | head -c 3000 >> img.txt || true
-            echo >> img.txt
-          done
+          python3 resolve.py || true
           git config user.name bot; git config user.email bot@example.com
-          git add img.txt && git commit -qm img && git push -q origin apitest
+          git add resolved.txt && git commit -qm resolved && git push -q origin apitest
