@@ -66,6 +66,7 @@ import de.marween.filmabend.normName
 
 @Composable
 fun NewScreen(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
+    val seen = rememberSeen(vm)
     var type by rememberSaveable { mutableIntStateOf(0) }
     var mtType by rememberSaveable { mutableIntStateOf(0) }
     val movies by vm.newMovies.collectAsStateWithLifecycle()
@@ -131,7 +132,7 @@ fun NewScreen(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
                             IconButton(onClick = { vm.loadNew(t, force = true) }) { Icon(Icons.Filled.Refresh, "Neu laden") }
                         }
                     }
-                    items(state.items, key = { it.item.key }) { rec ->
+                    items(state.items.filterNot { seen(it.item.key, it.item.title) }, key = { it.item.key }) { rec ->
                         NewCard(
                             vm, rec.item,
                             onOpen = { openDetail(rec.item.type, rec.item.id) },
@@ -157,6 +158,7 @@ fun openUrl(ctx: android.content.Context, url: String) {
 
 @Composable
 private fun TrailerList(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
+    val seen = rememberSeen(vm)
     val state by vm.trailers.collectAsStateWithLifecycle()
     val hh by vm.household.collectAsStateWithLifecycle()
     val uid by vm.uid.collectAsStateWithLifecycle()
@@ -180,7 +182,7 @@ private fun TrailerList(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
         else -> {
             ChipRow(providers, provider, { provider = it })
             LazyColumn(contentPadding = PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                items(shown, key = { it.videoId }) { tr ->
+                items(shown.filterNot { seen(null, it.show) }, key = { it.videoId }) { tr ->
                     Card(colors = CardDefaults.cardColors(containerColor = CardBg), modifier = Modifier.fillMaxWidth().clickable { openUrl(ctx, tr.url) }) {
                         Column {
                             Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).background(Color.Black), contentAlignment = Alignment.Center) {
@@ -232,6 +234,7 @@ private fun TrailerList(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
 
 @Composable
 private fun TvList(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
+    val seen = rememberSeen(vm)
     val state by vm.tv.collectAsStateWithLifecycle()
     var which by rememberSaveable { mutableIntStateOf(0) }
     var kind by rememberSaveable { mutableIntStateOf(0) }
@@ -260,7 +263,7 @@ private fun TvList(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
             ChipRow(listOf("Alle Sender", "Öffentlich-rechtlich", "Privat"), which, { which = it; kind = 0 })
             if (kinds.size > 2) ChipRow(kinds, kind, { kind = it }, Modifier.padding(top = 2.dp))
             LazyColumn(contentPadding = PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                items(shown.take(150), key = { it.show.item.key }) { r ->
+                items(shown.filterNot { seen(it.show.item.key, it.show.item.title) }.take(150), key = { it.show.item.key }) { r ->
                     val s = r.show
                     val more = if (s.airings > 1) " (+${s.airings - 1} weitere)" else ""
                     val item = s.item.copy(
@@ -281,6 +284,7 @@ private fun TvList(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
 
 @Composable
 private fun DiscList(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
+    val seen = rememberSeen(vm)
     val state by vm.discs.collectAsStateWithLifecycle()
     var format by rememberSaveable { mutableIntStateOf(0) }
     val formats = listOf("Alle", "4K", "Blu-ray", "DVD")
@@ -301,7 +305,7 @@ private fun DiscList(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
         else -> {
             ChipRow(formats, format, { format = it })
             LazyColumn(contentPadding = PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                val groups = shown.groupBy { it.weekStart }
+                val groups = shown.filterNot { seen(null, it.title) }.groupBy { it.weekStart }
                 groups.forEach { (week, list) ->
                     item(key = "w$week") {
                         Text(
@@ -380,6 +384,7 @@ private fun Loading(text: String?) {
 
 @Composable
 private fun MediathekList(vm: AppViewModel, series: Boolean, onPlay: (String, String) -> Unit) {
+    val seen = rememberSeen(vm)
     val films by vm.mtFilms.collectAsStateWithLifecycle()
     val shows by vm.mtSeries.collectAsStateWithLifecycle()
     val state = if (series) shows else films
@@ -402,7 +407,7 @@ private fun MediathekList(vm: AppViewModel, series: Boolean, onPlay: (String, St
         else -> {
             if (channels.size > 2) ChipRow(channels, channel, { channel = it })
             LazyColumn(contentPadding = PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                items(shown, key = { it.key + it.video }) { m -> MediathekCard(vm, m, onPlay) }
+                items(shown.filterNot { seen(it.key, it.name) }, key = { it.key + it.video }) { m -> MediathekCard(vm, m, onPlay) }
             }
         }
     }
@@ -528,4 +533,15 @@ fun TrailerDialog(title: String, url: String, onClose: () -> Unit) {
             )
         }
     }
+}
+
+/** Was ich schon gesehen habe – wird unter „Neu“ ausgeblendet. */
+@Composable
+fun rememberSeen(vm: AppViewModel): (String?, String) -> Boolean {
+    val uid by vm.uid.collectAsStateWithLifecycle()
+    val titles by vm.titles.collectAsStateWithLifecycle()
+    val set = remember(titles, uid) {
+        titles.filter { it.isWatched(uid) }.flatMap { listOf(it.key, "n:" + normName(it.title)) }.toHashSet()
+    }
+    return { key, title -> (key != null && key in set) || ("n:" + normName(title)) in set }
 }
