@@ -98,483 +98,243 @@ OK  Subservience -> Subservience (2024) MOVIE s=18
 OK  Verheißung – Der Grenzenlose -> Verheißung - Der Grenzenlose (2024) MOVIE s=13
 OK  How to Sell Drugs Online (Fast) -> How to Sell Drugs Online (Fast) (2019) SHOW s=13
 OK  HIP: Ermittlerin mit Mords-IQ -> HIP: Ermittlerin mit Mords-IQ (2021) SHOW s=13
-ERR High Potential
---  High Potential
-ERR Hundschuldig
---  Hundschuldig
-ERR Whiskey on the Rocks
---  Whiskey on the Rocks
-ERR Saturday Night
---  Saturday Night
-ERR Cheech & Chong's Last Movie
---  Cheech & Chong's Last Movie
-ERR Like a Complete Unknown
---  Like a Complete Unknown
-ERR Konklave
---  Konklave
-ERR Here
---  Here
-ERR Crunch - Traum und Albtraum in der Gaming-Industrie
+OK  High Potential -> High Potential (2024) SHOW s=13
+OK  Hundschuldig -> Hundschuldig (2024) MOVIE s=18
+OK  Whiskey on the Rocks -> Whiskey on the rocks (2024) SHOW s=13
+OK  Saturday Night -> Saturday Night (2024) MOVIE s=18
+OK  Cheech & Chong's Last Movie -> Cheech and Chong's Last Movie (2025) MOVIE s=18
+OK  Like a Complete Unknown -> Like a Complete Unknown (2024) MOVIE s=18
+OK  Konklave -> Konklave (2024) MOVIE s=18
+OK  Here -> Here (2024) MOVIE s=18
 --  Crunch - Traum und Albtraum in der Gaming-Industrie
-ERR Hagen – Im Tal der Nibelungen
---  Hagen – Im Tal der Nibelungen
-ERR Shrinking
---  Shrinking
-ERR Old Guy
---  Old Guy
-ERR That Sugar Film
---  That Sugar Film
-ERR Einsame Herzen
---  Einsame Herzen
-ERR Eden
---  Eden
-ERR Block Party – Peter Fox feiert mit Berlin
---  Block Party – Peter Fox feiert mit Berlin
-ERR Rich Flu
---  Rich Flu
-ERR Späti
---  Späti
-ERR Gags – Comedy Deluxe
---  Gags – Comedy Deluxe
-ERR Panda Plan
---  Panda Plan
-ERR Eternauta
---  Eternauta
-ERR Drags of Monnem
---  Drags of Monnem
-ERR Companion
---  Companion
-ERR Doppelhaushälfte
---  Doppelhaushälfte
-ERR Tanz der Titanen
---  Tanz der Titanen
-ERR Kneecap
---  Kneecap
-ERR Love, Death & Robots
---  Love, Death & Robots
-ERR Die Legende von Ochi
---  Die Legende von Ochi
-ERR Terra X: Geschichte der Musik
---  Terra X: Geschichte der Musik
-ERR The Man from Earth
---  The Man from Earth
-ERR The Ugly Stepsister
---  The Ugly Stepsister
-ERR Rosenthal
---  Rosenthal
-ERR Jolt
---  Jolt
-ERR Sleeping Dogs
---  Sleeping Dogs
-ERR Caddo Lake
---  Caddo Lake
-ERR Monster Summer
---  Monster Summer
-ERR Good Boys
---  Good Boys
-ERR Warum ich?
---  Warum ich?
-ERR I Love This Country
---  I Love This Country
-ERR Drei Caballeros
---  Drei Caballeros
-ERR Creep
---  Creep
-ERR Das Belko Experiment
---  Das Belko Experiment
-ERR In the Line of Fire
---  In the Line of Fire
-ERR Adolescence
---  Adolescence
-ERR Das große Los
---  Das große Los
-ERR Clown
---  Clown
-ERR The Nun II
---  The Nun II
-ERR Final Destination: Bloodlines
---  Final Destination: Bloodlines
-ERR Final Destination 2
---  Final Destination 2
-ERR BlacKkKlansman
---  BlacKkKlansman
-ERR Locked
---  Locked
-ERR Köln 75
---  Köln 75
-ERR Washington Black
---  Washington Black
-ERR The Surfer
---  The Surfer
-ERR Under the Silver Lake
---  Under the Silver Lake
-ERR Die Abenteuer des Baron Münchhausen
---  Die Abenteuer des Baron Münchhausen
-ERR I See You
---  I See You
-ERR Rave On
---  Rave On
-ERR Sirât
---  Sirât
-ERR The Life of Chuck
---  The Life of Chuck
-ERR Memoiren einer Schnecke
---  Memoiren einer Schnecke
-ERR Stans
---  Stans
-ERR Black Bag – Doppeltes Spiel
---  Black Bag – Doppeltes Spiel
-ERR Good Boy
---  Good Boy
-ERR Zurück bleibt die Angst
---  Zurück bleibt die Angst
-ERR Die Abenteuer von Spirou & Fantasio
---  Die Abenteuer von Spirou & Fantasio
-ERR Gaston – Katastrophen am laufenden Band
---  Gaston – Katastrophen am laufenden Band
-ERR Tierisch high
---  Tierisch high
-ERR Sanft schläft der Tod
---  Sanft schläft der Tod
-ERR Smeilingen – Ein Dorf wie Du und Ich
---  Smeilingen – Ein Dorf wie Du und Ich
-ERR The Paper
---  The Paper
-ERR Weapons – Die Stunde des Verschwindens
---  Weapons – Die Stunde des Verschwindens
-ERR Roncalli – Macht der Manege
---  Roncalli – Macht der Manege
-ERR An Honest Liar
---  An Honest Liar
-ERR Oktoberfest 1900
---  Oktoberfest 1900
-ERR Call My Agent: Berlin
---  Call My Agent: Berlin
-ERR Children of Men
---  Children of Men
-ERR Einladung zum Mord
---  Einladung zum Mord
-ERR Einladung zum Mord 2
---  Einladung zum Mord 2
-ERR Wanted
---  Wanted
-ERR Alle Teufel sind hier
---  Alle Teufel sind hier
-ERR Code 3
---  Code 3
-ERR #SchwarzeSchafe
---  #SchwarzeSchafe
-ERR Fargo
---  Fargo
-ERR The Lost Station Girls
---  The Lost Station Girls
-ERR Awareness
---  Awareness
-ERR Die Familie Stone – Verloben verboten!
---  Die Familie Stone – Verloben verboten!
-ERR Die Unbestechlichen
---  Die Unbestechlichen
-ERR Der Clou
---  Der Clou
-ERR Lazarus
---  Lazarus
-ERR Spermageddon
---  Spermageddon
-ERR Kohlrabenschwarz
---  Kohlrabenschwarz
-ERR Chilling Adventures of Sabrina
---  Chilling Adventures of Sabrina
-ERR Lovely, Dark, and Deep
---  Lovely, Dark, and Deep
-ERR Herbertstraße – Geschichte einer Domina
---  Herbertstraße – Geschichte einer Domina
-ERR Amsterdam Empire
---  Amsterdam Empire
-ERR Downton Abbey: Das große Finale
---  Downton Abbey: Das große Finale
-ERR The Amateur
---  The Amateur
-ERR Playdate
---  Playdate
-ERR Pluribus
---  Pluribus
-ERR Radio Heimat
---  Radio Heimat
-ERR Stolz und Vorurteil & Zombies
---  Stolz und Vorurteil & Zombies
-ERR Patrick Melrose
---  Patrick Melrose
-ERR Censor
---  Censor
-ERR Kill List
---  Kill List
-ERR Fleischwolf
---  Fleischwolf
-ERR Barmbek Bump – Prange vs. Rohde
---  Barmbek Bump – Prange vs. Rohde
-ERR Lars Eidinger – Sein oder nicht sein
---  Lars Eidinger – Sein oder nicht sein
-ERR Das Kanu des Manitu
---  Das Kanu des Manitu
-ERR Asbest
---  Asbest
-ERR Rudi, benimm dich!
---  Rudi, benimm dich!
-ERR The Lowdown
---  The Lowdown
-ERR Eternity
---  Eternity
-ERR Good Boy: Wir wollen nur dein Bestes
---  Good Boy: Wir wollen nur dein Bestes
-ERR Wen die Geister lieben
---  Wen die Geister lieben
-ERR The Leftovers
---  The Leftovers
-ERR Good Luck, Have Fun, Don't Die
---  Good Luck, Have Fun, Don't Die
-ERR Ganzer halber Bruder
---  Ganzer halber Bruder
-ERR Dark Matter
---  Dark Matter
-ERR Bugonia
---  Bugonia
-ERR Sherlock & Daughter
---  Sherlock & Daughter
-ERR Slow Horses – Ein Fall für Jackson Lamb
---  Slow Horses – Ein Fall für Jackson Lamb
-ERR It Follows
---  It Follows
-ERR Good Fortune
---  Good Fortune
-ERR Hallow Road
---  Hallow Road
-ERR Anon
---  Anon
-ERR 825 Forest Road
---  825 Forest Road
-ERR Succession
---  Succession
-ERR 56 Tage
---  56 Tage
-ERR Das schwarze Loch
---  Das schwarze Loch
-ERR The War Between the Land and the Sea
---  The War Between the Land and the Sea
-ERR Mein Freund Finnick
---  Mein Freund Finnick
-ERR Zweigstelle
---  Zweigstelle
-ERR Him
---  Him
-ERR Dracula – Die Auferstehung
---  Dracula – Die Auferstehung
-ERR Young Sherlock
---  Young Sherlock
-ERR Dead Man's Shoes
---  Dead Man's Shoes
-ERR No Hit Wonder
---  No Hit Wonder
-ERR Der Mann, der immer kleiner wurde
---  Der Mann, der immer kleiner wurde
-ERR Das Pubertier – Der Film
---  Das Pubertier – Der Film
-ERR The Endless
---  The Endless
-ERR Der Hochstapler – Roofman
---  Der Hochstapler – Roofman
-ERR Amsterdamned II
---  Amsterdamned II
-ERR Empire Waist
---  Empire Waist
-ERR Heated Rivalry
---  Heated Rivalry
-ERR The 'Burbs
---  The 'Burbs
-ERR Die Apple-Story
---  Die Apple-Story
-ERR The Bride! Es lebe die Braut
---  The Bride! Es lebe die Braut
-ERR The Madison
---  The Madison
-ERR Ready or Not 2: Here I Come
---  Ready or Not 2: Here I Come
-ERR Philip K. Dick's Electric Dreams
---  Philip K. Dick's Electric Dreams
-ERR Eyes Wide Shut
---  Eyes Wide Shut
-ERR MacGruber
---  MacGruber
-ERR Shit Show – Welcome to Reality
---  Shit Show – Welcome to Reality
-ERR Dust Bunny
---  Dust Bunny
-ERR Euphoria
---  Euphoria
-ERR Mike & Nick & Nick & Alice
---  Mike & Nick & Nick & Alice
-ERR Half Man
---  Half Man
-ERR Argylle
---  Argylle
-ERR Die progressiven Nostalgiker
---  Die progressiven Nostalgiker
-ERR DTF St. Louis
---  DTF St. Louis
-ERR The Boroughs
---  The Boroughs
-ERR Spider-Noir
---  Spider-Noir
-ERR The Lazarus Project
---  The Lazarus Project
-ERR Silent Friend
---  Silent Friend
-ERR Apex
---  Apex
-ERR The Invite
---  The Invite
-ERR Bone Lake
---  Bone Lake
-ERR They Will Kill You
---  They Will Kill You
-ERR Hellraiser: Judgment
---  Hellraiser: Judgment
-ERR The Wire
---  The Wire
-ERR Chaos Couple
---  Chaos Couple
-ERR Die Schlümpfe – Der große Kinofilm
---  Die Schlümpfe – Der große Kinofilm
-ERR München Beats
---  München Beats
-ERR Paris Murder Mystery
---  Paris Murder Mystery
-ERR Der eBay-Skandal
---  Der eBay-Skandal
-ERR Do Not Enter
---  Do Not Enter
-ERR This Is Not a Murder Mystery
---  This Is Not a Murder Mystery
-ERR SUDO – Vom Schüler zum Darknet-Boss
+OK  Hagen – Im Tal der Nibelungen -> Hagen - Im Tal der Nibelungen (2024) MOVIE s=18
+OK  Shrinking -> Shrinking (2023) SHOW s=13
+OK  Old Guy -> Old Guy (2024) MOVIE s=18
+OK  That Sugar Film -> Voll verzuckert - That Sugar Film (2014) MOVIE s=18
+OK  Einsame Herzen -> Einsame Herzen (2023) SHOW s=13
+OK  Eden -> Eden (2025) MOVIE s=18
+--  Block Party – Peter Fox feiert mit Berlin (best: Elysium s=0)
+OK  Rich Flu -> Rich Flu (2024) MOVIE s=18
+OK  Späti -> Späti (2025) SHOW s=13
+OK  Gags – Comedy Deluxe -> Gags - Comedy Deluxe (2024) SHOW s=13
+OK  Panda Plan -> Panda Plan (2024) MOVIE s=18
+OK  Eternauta -> Eternauta (2025) SHOW s=13
+--  Drags of Monnem (best: Queens on the Run s=0)
+OK  Companion -> Companion - Die perfekte Begleitung (2025) MOVIE s=18
+OK  Doppelhaushälfte -> Doppelhaushälfte (2022) SHOW s=13
+OK  Tanz der Titanen -> Tanz der Titanen (2024) MOVIE s=13
+OK  Kneecap -> Kneecap (2024) MOVIE s=18
+OK  Love, Death & Robots -> Love, Death & Robots (2019) SHOW s=13
+OK  Die Legende von Ochi -> Die Legende von Ochi (2025) MOVIE s=18
+--  Terra X: Geschichte der Musik (best: X s=4)
+OK  The Man from Earth -> The Man from Earth (2007) MOVIE s=18
+OK  The Ugly Stepsister -> The Ugly Stepsister (2025) MOVIE s=18
+OK  Rosenthal -> Das war Spitze! (2025) MOVIE s=18
+OK  Jolt -> Jolt (2021) MOVIE s=18
+OK  Sleeping Dogs -> Sleeping Dogs - Manche Lügen sterben nie (2024) MOVIE s=18
+OK  Caddo Lake -> Caddo Lake (2024) MOVIE s=18
+OK  Monster Summer -> Monster Summer (2024) MOVIE s=18
+OK  Good Boys -> Good Boys (2019) MOVIE s=18
+OK  Warum ich? -> Whyme (2025) SHOW s=10
+OK  I Love This Country -> This Country (2017) SHOW s=7
+OK  Drei Caballeros -> Drei Caballeros (1944) MOVIE s=18
+OK  Creep -> Creep (2014) MOVIE s=18
+OK  Das Belko Experiment -> Das Belko Experiment (2017) MOVIE s=18
+OK  In the Line of Fire -> In the Line of Fire - Die zweite Chance (1993) MOVIE s=18
+OK  Adolescence -> Adolescence (2025) SHOW s=13
+OK  Das große Los -> Das große Los - 1 Insel, 40 Einwohner, 2 Betrüger (2024) MOVIE s=12
+OK  Clown -> Clown (2014) MOVIE s=18
+OK  The Nun II -> The Nun 2 (2023) MOVIE s=18
+OK  Final Destination: Bloodlines -> Final Destination 6: Bloodlines (2025) MOVIE s=18
+OK  Final Destination 2 -> Final Destination 2 (2003) MOVIE s=18
+OK  BlacKkKlansman -> BLACKkKLANSMAN (2018) MOVIE s=18
+OK  Locked -> Locked (2025) MOVIE s=18
+OK  Köln 75 -> Köln 75 (2025) MOVIE s=18
+OK  Washington Black -> Washington Black (2025) SHOW s=13
+OK  The Surfer -> The Surfer (2025) MOVIE s=18
+OK  Under the Silver Lake -> Under the Silver Lake (2018) MOVIE s=18
+OK  Die Abenteuer des Baron Münchhausen -> Die Abenteuer des Baron Münchhausen (1988) MOVIE s=18
+OK  I See You -> I See You - Das Böse ist näher als du denkst (2019) MOVIE s=18
+OK  Rave On -> Rave On (2025) MOVIE s=18
+OK  Sirât -> Sirât (2025) MOVIE s=18
+OK  The Life of Chuck -> The Life of Chuck (2025) MOVIE s=18
+OK  Memoiren einer Schnecke -> Memoiren einer Schnecke (2024) MOVIE s=18
+OK  Stans -> Stans (2025) MOVIE s=18
+OK  Black Bag – Doppeltes Spiel -> Black Bag - Doppeltes Spiel (2025) MOVIE s=18
+OK  Good Boy -> Good Boy - Trust His Instincts (2025) MOVIE s=18
+OK  Zurück bleibt die Angst -> Zurück bleibt die Angst (1981) MOVIE s=13
+OK  Die Abenteuer von Spirou & Fantasio -> Die Abenteuer von Spirou & Fantasio (2018) MOVIE s=18
+OK  Gaston – Katastrophen am laufenden Band -> Gaston Katastrophen am laufenden Band (2018) MOVIE s=18
+--  Tierisch high (best: High Society s=0)
+OK  Sanft schläft der Tod -> Sanft schläft der Tod (2016) MOVIE s=13
+OK  Smeilingen – Ein Dorf wie Du und Ich -> Smeilingen (2024) SHOW s=7
+OK  The Paper -> The Paper (2025) SHOW s=13
+OK  Weapons – Die Stunde des Verschwindens -> Weapons - Die Stunde des Verschwindens (2025) MOVIE s=18
+--  Roncalli – Macht der Manege (best: Der Herr der Ringe: Die Ringe der Macht s=3)
+OK  An Honest Liar -> An Honest Liar (2014) MOVIE s=18
+OK  Oktoberfest 1900 -> Oktoberfest 1900 (2020) MOVIE s=10
+OK  Call My Agent: Berlin -> Zehn Prozent (2025) SHOW s=13
+OK  Children of Men -> Children of Men (2006) MOVIE s=18
+OK  Einladung zum Mord -> Einladung zum Mord (2023) MOVIE s=18
+OK  Einladung zum Mord 2 -> Einladung zum Mord 2 - Das Rätsel von Kairo (2025) MOVIE s=7
+OK  Wanted -> Wanted (2008) MOVIE s=18
+OK  Alle Teufel sind hier -> Alle Teufel sind hier (2025) MOVIE s=18
+OK  Code 3 -> Code 3 (2025) MOVIE s=18
+OK  #SchwarzeSchafe -> #SchwarzeSchafe (2025) MOVIE s=18
+OK  Fargo -> Fargo: Blutiger Schnee (1996) MOVIE s=18
+OK  The Lost Station Girls -> The Lost Station Girls (2025) SHOW s=13
+OK  Awareness -> Awareness - Die Realität Ist Eine Illusion (2023) MOVIE s=18
+OK  Die Familie Stone – Verloben verboten! -> Die Familie Stone - Verloben verboten! (2005) MOVIE s=18
+OK  Die Unbestechlichen -> Die Unbestechlichen (1976) MOVIE s=13
+OK  Der Clou -> Der Clou (1973) MOVIE s=18
+OK  Lazarus -> Lazarus (2025) SHOW s=13
+OK  Spermageddon -> Spermageddon (2025) MOVIE s=18
+OK  Kohlrabenschwarz -> Kohlrabenschwarz (2023) SHOW s=13
+OK  Chilling Adventures of Sabrina -> Chilling Adventures of Sabrina (2018) SHOW s=13
+OK  Lovely, Dark, and Deep -> Lovely, Dark, and Deep (2024) MOVIE s=18
+OK  Herbertstraße – Geschichte einer Domina -> Herbertstraße – Geschichte einer Domina (2025) SHOW s=13
+OK  Amsterdam Empire -> Amsterdam Empire (2025) SHOW s=13
+OK  Downton Abbey: Das große Finale -> Downton Abbey: Das große Finale (2025) MOVIE s=18
+OK  The Amateur -> The Amateur (2025) MOVIE s=18
+OK  Playdate -> Playdate - Die Action-Dads (2025) MOVIE s=18
+OK  Pluribus -> Pluribus (2025) SHOW s=13
+OK  Radio Heimat -> Radio Heimat (2016) MOVIE s=18
+OK  Stolz und Vorurteil & Zombies -> Stolz und Vorurteil & Zombies (2016) MOVIE s=18
+OK  Patrick Melrose -> Patrick Melrose (2018) SHOW s=13
+OK  Censor -> Censor (2021) MOVIE s=18
+OK  Kill List -> Kill List (2011) MOVIE s=18
+OK  Fleischwolf -> Fleischwolf (2025) SHOW s=10
+--  Barmbek Bump – Prange vs. Rohde (best: Prange - Man ist ja Nachbar s=0)
+OK  Lars Eidinger – Sein oder nicht sein -> Lars Eidinger - Sein oder nicht Sein (2023) MOVIE s=18
+OK  Das Kanu des Manitu -> Das Kanu des Manitu (2025) MOVIE s=18
+OK  Asbest -> Asbest 2 (2023) SHOW s=13
+OK  Rudi, benimm dich! -> Rudi benimm dich! (1971) MOVIE s=13
+OK  The Lowdown -> The Lowdown (2025) SHOW s=13
+OK  Eternity -> Eternity (2025) MOVIE s=18
+OK  Good Boy: Wir wollen nur dein Bestes -> Good Boy - Wir wollen nur dein Bestes (2026) MOVIE s=13
+OK  Wen die Geister lieben -> Wen die Geister lieben (2008) MOVIE s=13
+OK  The Leftovers -> The Leftovers (2014) SHOW s=13
+OK  Good Luck, Have Fun, Don't Die -> Good Luck, Have Fun, Don't Die (2026) MOVIE s=18
+OK  Ganzer halber Bruder -> Ganzer halber Bruder (2025) MOVIE s=18
+OK  Dark Matter -> Dark Matter – Der Zeitenläufer (2024) SHOW s=13
+OK  Bugonia -> Bugonia (2025) MOVIE s=18
+OK  Sherlock & Daughter -> Sherlock & Tochter (2025) SHOW s=13
+OK  Slow Horses – Ein Fall für Jackson Lamb -> Slow Horses – Ein Fall für Jackson Lamb (2022) SHOW s=13
+OK  It Follows -> It Follows (2015) MOVIE s=18
+OK  Good Fortune -> Good Fortune - Ein ganz spezieller Schutzengel (2025) MOVIE s=18
+OK  Hallow Road -> Hallow Road (2025) MOVIE s=18
+OK  Anon -> Anon (2018) MOVIE s=18
+OK  825 Forest Road -> 825 Forest Road (2025) MOVIE s=18
+OK  Succession -> Succession (2018) SHOW s=13
+OK  56 Tage -> 56 Tage (2026) SHOW s=13
+OK  Das schwarze Loch -> Das schwarze Loch (1979) MOVIE s=18
+--  The War Between the Land and the Sea (best: The Warrior Princess and the Barbaric King s=3)
+OK  Mein Freund Finnick -> Mein Freund Finnick (2022) MOVIE s=18
+OK  Zweigstelle -> Zweigstelle (2025) MOVIE s=18
+OK  Him -> Him - Der Größte aller Zeiten (2025) MOVIE s=18
+OK  Dracula – Die Auferstehung -> Dracula - Die Auferstehung (2025) MOVIE s=18
+OK  Young Sherlock -> Young Sherlock (2026) SHOW s=13
+OK  Dead Man's Shoes -> Blutrache – Dead Man’s Shoes (2004) MOVIE s=18
+OK  No Hit Wonder -> No Hit Wonder (2025) MOVIE s=18
+OK  Der Mann, der immer kleiner wurde -> Der Mann, der immer kleiner wurde (2025) MOVIE s=18
+OK  Das Pubertier – Der Film -> Das Pubertier - Der Film (2017) MOVIE s=18
+OK  The Endless -> The Endless (2017) MOVIE s=18
+OK  Der Hochstapler – Roofman -> Der Hochstapler - Roofman (2025) MOVIE s=18
+OK  Amsterdamned II -> Amsterdamned II - Verfluchtes Amsterdam (2025) MOVIE s=18
+OK  Empire Waist -> Empire Waist - Dein Leben, dein Laufsteg (2024) MOVIE s=18
+OK  Heated Rivalry ->  Heated Rivalry (2025) SHOW s=13
+OK  The 'Burbs -> The Burbs (2026) SHOW s=13
+OK  Die Apple-Story -> Die Apple-Story – Eine Vision verführt die Welt (2026) SHOW s=7
+OK  The Bride! Es lebe die Braut -> The Bride! - Es lebe die Braut (2026) MOVIE s=18
+OK  The Madison -> The Madison (2026) SHOW s=13
+OK  Ready or Not 2: Here I Come -> Ready or Not 2 (2026) MOVIE s=18
+OK  Philip K. Dick's Electric Dreams -> Electric Dreams (2017) SHOW s=13
+OK  Eyes Wide Shut -> Eyes Wide Shut (1999) MOVIE s=18
+OK  MacGruber -> MacGruber (2010) MOVIE s=18
+OK  Shit Show – Welcome to Reality -> Shit Show - Welcome to Reality (2026) SHOW s=13
+OK  Dust Bunny -> Dust Bunny (2025) MOVIE s=18
+OK  Euphoria -> Euphoria (2019) SHOW s=13
+OK  Mike & Nick & Nick & Alice -> Mike & Nick & Nick & Alice (2026) MOVIE s=18
+OK  Half Man -> Half Man (2026) SHOW s=13
+OK  Argylle -> Argylle (2024) MOVIE s=18
+OK  Die progressiven Nostalgiker -> Die progressiven Nostalgiker (2025) MOVIE s=18
+OK  DTF St. Louis -> DTF St. Louis (2026) SHOW s=13
+OK  The Boroughs -> The Boroughs (2026) SHOW s=13
+OK  Spider-Noir -> Spider-Noir (2026) SHOW s=13
+OK  The Lazarus Project -> The Lazarus Project (2022) SHOW s=13
+OK  Silent Friend -> Silent Friend (2026) MOVIE s=18
+OK  Apex -> Apex (2026) MOVIE s=18
+OK  The Invite -> The Invite (2026) MOVIE s=18
+OK  Bone Lake -> Bone Lake (2025) MOVIE s=18
+OK  They Will Kill You -> They Will Kill You (2026) MOVIE s=18
+OK  Hellraiser: Judgment -> Hellraiser: Judgment (2018) MOVIE s=18
+OK  The Wire -> The Wire (2002) SHOW s=13
+OK  Chaos Couple -> Chaos Couple: Bis das der Einbruch uns scheidet (2026) MOVIE s=7
+OK  Die Schlümpfe – Der große Kinofilm -> Die Schlümpfe: Der große Kinofilm (2025) MOVIE s=18
+OK  München Beats -> München Beats (2026) SHOW s=13
+OK  Paris Murder Mystery -> Paris Murder Mystery (2025) MOVIE s=18
+OK  Der eBay-Skandal -> Der eBay-Skandal (2024) MOVIE s=10
+OK  Do Not Enter -> Do Not Enter (2024) MOVIE s=18
+OK  This Is Not a Murder Mystery -> This Is Not a Murder Mystery (2025) SHOW s=13
 --  SUDO – Vom Schüler zum Darknet-Boss
-ERR Evolution
---  Evolution
-ERR U Are the Universe
---  U Are the Universe
-ERR Stand Your Ground
---  Stand Your Ground
-ERR Snoopy präsentiert: Zu Hause ist es am schönsten
---  Snoopy präsentiert: Zu Hause ist es am schönsten
-ERR Die verrückte Geschichte der Welt
---  Die verrückte Geschichte der Welt
-ERR American Sweatshop
---  American Sweatshop
-ERR Verflucht normal
---  Verflucht normal
-ERR The Dink
---  The Dink
-ERR Carrie
---  Carrie
-ERR 4 Blocks Zero
---  4 Blocks Zero
-ERR Obsession
---  Obsession
-ERR Gänsehaut
---  Gänsehaut
-ERR Nine to Five – Das Amt
---  Nine to Five – Das Amt
-ERR American Horror Story
---  American Horror Story
-ERR Yaga
---  Yaga
-ERR History or Mystery – Die Burgenchallenge
---  History or Mystery – Die Burgenchallenge
-ERR Speak No Evil
---  Speak No Evil
-ERR Die Friesenjunkies
---  Die Friesenjunkies
-ERR Vibes – Find Your Fire
---  Vibes – Find Your Fire
-ERR Tokio Hotel – Gegen alle Regeln
---  Tokio Hotel – Gegen alle Regeln
-ERR Bodkin
---  Bodkin
-ERR The Game
---  The Game
-ERR The Peanut Butter Falcon
---  The Peanut Butter Falcon
-ERR Tanzen für den Teufel: Die TikTok-Sekte von 7M
---  Tanzen für den Teufel: Die TikTok-Sekte von 7M
-ERR How to Rob a Bank
---  How to Rob a Bank
-ERR Joko Anwar's Nightmares and Daydreams
---  Joko Anwar's Nightmares and Daydreams
-ERR One Tree Hill
---  One Tree Hill
-ERR The Man from Toronto
---  The Man from Toronto
-ERR Kap der Angst
---  Kap der Angst
-ERR Dig Deeper: Das Verschwinden von Birgit Meier
---  Dig Deeper: Das Verschwinden von Birgit Meier
-ERR Total normal – Hape Kerkeling
---  Total normal – Hape Kerkeling
-ERR Der Fall des Gabriel Fernandez
---  Der Fall des Gabriel Fernandez
-ERR Dog Man
---  Dog Man
-ERR Only Murders in the Building
---  Only Murders in the Building
-ERR Brothers & Sisters
---  Brothers & Sisters
-ERR Virgin River
---  Virgin River
-ERR Firefly Lane
---  Firefly Lane
-ERR Nobody Wants This
---  Nobody Wants This
-ERR Der Sommer, in dem ich schön wurde
---  Der Sommer, in dem ich schön wurde
-ERR Liebe im Spektrum
---  Liebe im Spektrum
-ERR Eat Pray Bark
---  Eat Pray Bark
-ERR The American Experiment
---  The American Experiment
-ERR Lola rennt
---  Lola rennt
-ERR Off Campus
---  Off Campus
-ERR Donnie Darko
---  Donnie Darko
-ERR One Hour Photo
---  One Hour Photo
-ERR Scooby-Doo
---  Scooby-Doo
-ERR Cape Fear
---  Cape Fear
-ERR Welcome to the Club
---  Welcome to the Club
-ERR After Life
---  After Life
-ERR Ted Lasso
---  Ted Lasso
-ERR Die Puppe
---  Die Puppe
-ERR Amy Bradley ist spurlos verschwunden
---  Amy Bradley ist spurlos verschwunden
-ERR Garfield – Eine extra Portion Abenteuer
---  Garfield – Eine extra Portion Abenteuer
-ERR Billionaire Boys Club
---  Billionaire Boys Club
-ERR Stranger Things
---  Stranger Things
-ERR Die Fabelmans
---  Die Fabelmans
-ERR The Doors
---  The Doors
-ERR Kafka
---  Kafka
-ERR Drug Nation – Das Versagen der Drogenpolitik
---  Drug Nation – Das Versagen der Drogenpolitik
-ERR Kurzstrecke mit Pierre M. Krause
---  Kurzstrecke mit Pierre M. Krause
+OK  Evolution -> Evolution (2001) MOVIE s=18
+OK  U Are the Universe -> U Are the Universe (2025) MOVIE s=18
+OK  Stand Your Ground -> Stand Your Ground - Tödliches Recht (2025) MOVIE s=18
+OK  Snoopy präsentiert: Zu Hause ist es am schönsten -> Snoopy präsentiert: Zu Hause ist es am schönsten (2026) MOVIE s=18
+OK  Die verrückte Geschichte der Welt -> Mel Brooks' verrückte Geschichte der Welt (1981) MOVIE s=8
+OK  American Sweatshop -> American Sweatshop (2025) MOVIE s=18
+OK  Verflucht normal -> I Swear - Verflucht normal (2025) MOVIE s=7
+OK  The Dink -> The Dink (2026) MOVIE s=13
+OK  Carrie -> Carrie (2026) SHOW s=13
+OK  4 Blocks Zero -> 4 Blocks Zero (2026) SHOW s=13
+OK  Obsession -> Obsession – Du sollst mich lieben (2026) MOVIE s=13
+OK  Gänsehaut -> Gänsehaut (2015) MOVIE s=18
+OK  Nine to Five – Das Amt -> Nine to Five - Das Amt (2026) SHOW s=13
+OK  American Horror Story -> American Horror Story - Die dunkle Seite in dir (2011) SHOW s=13
+OK  Yaga -> Yaga (2026) SHOW s=10
+--  History or Mystery – Die Burgenchallenge (best: Suga s=3)
+OK  Speak No Evil -> Speak No Evil (2024) MOVIE s=18
+OK  Die Friesenjunkies -> Friesenjunkies (2026) SHOW s=13
+--  Vibes – Find Your Fire (best: Find Me in Your Memory s=3)
+--  Tokio Hotel – Gegen alle Regeln (best: A Good Man - Gegen alle Regeln s=0)
+OK  Bodkin -> Bodkin (2024) SHOW s=13
+OK  The Game -> The Game - Das Geschenk seines Lebens (1997) MOVIE s=18
+OK  The Peanut Butter Falcon -> The Peanut Butter Falcon (2019) MOVIE s=18
+OK  Tanzen für den Teufel: Die TikTok-Sekte von 7M -> Tanzen für den Teufel: Die TikTok-Sekte von 7M (2024) SHOW s=13
+OK  How to Rob a Bank -> How to Rob a Bank (2024) MOVIE s=18
+OK  Joko Anwar's Nightmares and Daydreams -> Joko Anwar's Nightmares and Daydreams (2024) SHOW s=13
+OK  One Tree Hill -> One Tree Hill (2003) SHOW s=13
+OK  The Man from Toronto -> Der Mann aus Toronto (2022) MOVIE s=18
+OK  Kap der Angst -> Kap der Angst (1991) MOVIE s=18
+OK  Dig Deeper: Das Verschwinden von Birgit Meier -> Dig Deeper: Das Verschwinden von Birgit Meier (2021) SHOW s=13
+--  Total normal – Hape Kerkeling (best: Total Normal s=4)
+OK  Der Fall des Gabriel Fernandez -> Der Fall des Gabriel Fernandez (2020) SHOW s=13
+OK  Dog Man -> Dog Man: Wau gegen Miau (2025) MOVIE s=18
+OK  Only Murders in the Building -> Only Murders in the Building (2021) SHOW s=13
+OK  Brothers & Sisters -> Brothers & Sisters (2006) SHOW s=13
+OK  Virgin River -> Virgin River (2019) SHOW s=13
+OK  Firefly Lane -> Immer für dich da (2021) SHOW s=13
+OK  Nobody Wants This -> Nobody Wants This (2024) SHOW s=13
+--  Der Sommer, in dem ich schön wurde (best: Der Sommer, als ich schön wurde s=3)
+OK  Liebe im Spektrum -> Liebe im Spektrum (2022) SHOW s=13
+OK  Eat Pray Bark -> Eat Pray Bark (2026) MOVIE s=13
+OK  The American Experiment -> The American Experiment (2026) SHOW s=10
+OK  Lola rennt -> Lola rennt (1998) MOVIE s=18
+OK  Off Campus -> Off Campus (2026) SHOW s=13
+OK  Donnie Darko -> Donnie Darko (2001) MOVIE s=18
+OK  One Hour Photo -> One Hour Photo - Ich beobachte dich (2002) MOVIE s=18
+OK  Scooby-Doo -> Scooby-Doo (2002) MOVIE s=18
+OK  Cape Fear -> Cape Fear (2026) SHOW s=13
+OK  Welcome to the Club -> Die Simpsons - Willkommen im Club (2022) MOVIE s=10
+OK  After Life -> After Life (2019) SHOW s=13
+OK  Ted Lasso -> Ted Lasso (2020) SHOW s=13
+OK  Die Puppe -> Die Puppe (1919) MOVIE s=13
+OK  Amy Bradley ist spurlos verschwunden -> Amy Bradley ist spurlos verschwunden (2025) SHOW s=13
+OK  Garfield – Eine extra Portion Abenteuer -> Garfield - Eine Extra Portion Abenteuer (2024) MOVIE s=18
+OK  Billionaire Boys Club -> Billionaire Boys Club (2018) MOVIE s=18
+OK  Stranger Things -> Stranger Things (2016) SHOW s=13
+OK  Die Fabelmans -> Die Fabelmans (2022) MOVIE s=18
+OK  The Doors -> The Doors (1991) MOVIE s=18
+OK  Kafka -> Kafka (2024) SHOW s=13
+--  Drug Nation – Das Versagen der Drogenpolitik (best: Das Vermächtnis der Tempelritter s=0)
+OK  Kurzstrecke mit Pierre M. Krause -> Kurzstrecke mit Pierre M. Krause (2020) SHOW s=13
