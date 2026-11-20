@@ -78,14 +78,17 @@ fun NewScreen(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
         vm.loadTrailers()
         when (type) {
             3 -> vm.loadMediathek(series = mtType == 1)
+            4 -> vm.loadDiscs()
             2 -> {}
-            else -> vm.loadNew(t)
+            0, 1 -> vm.loadNew(t)
         }
     }
 
     Column(Modifier.fillMaxSize()) {
-        ChipRow(listOf("Neue Filme", "Neue Serien", "Trailer", "Mediatheken"), type, { type = it })
-        if (type == 2) {
+        ChipRow(listOf("Neue Filme", "Neue Serien", "Trailer", "Mediatheken", "DVD & Blu-ray"), type, { type = it })
+        if (type == 4) {
+            DiscList(vm, openDetail)
+        } else if (type == 2) {
             TrailerList(vm, openDetail)
         } else if (type == 3) {
             ChipRow(listOf("Filme", "Serien"), mtType, { mtType = it }, Modifier.padding(top = 2.dp))
@@ -198,14 +201,102 @@ private fun TrailerList(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
                                     IconButton(onClick = { vm.withTrailerTitle(tr) { openDetail(it.type, it.id) } }) {
                                         Icon(Icons.Filled.Info, "Details", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
-                                    if (partner != null) IconButton(onClick = { vm.withTrailerTitle(tr) { vm.suggest(it.info, "Schau mal den Trailer: ${tr.url}") } }) {
-                                        Icon(Icons.AutoMirrored.Filled.Send, "Vorschlagen", tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    }
                                 }
+                                PartnerButtons(vm, tr.show, null, { cb -> vm.withTrailerTitle(tr) { cb(it.info) } })
                             }
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DiscList(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
+    val state by vm.discs.collectAsStateWithLifecycle()
+    var format by rememberSaveable { mutableIntStateOf(0) }
+    val formats = listOf("Alle", "4K", "Blu-ray", "DVD")
+    val shown = if (format == 0) state.items else state.items.filter { formats[format] in it.formats }
+    val weekFmt = java.text.SimpleDateFormat("dd.MM.yyyy", java.util.Locale.GERMANY)
+
+    Text(
+        "Neu auf DVD, Blu-ray & 4K – die letzten 8 Wochen, neueste Woche zuerst.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
+    )
+    when {
+        state.loading && state.items.isEmpty() -> Loading("Neuheiten werden geladen …")
+        state.error != null -> EmptyHint("Keine Neuheiten", state.error ?: "") {
+            TextButton(onClick = { vm.loadDiscs(force = true) }) { Text("Nochmal versuchen") }
+        }
+        else -> {
+            ChipRow(formats, format, { format = it })
+            LazyColumn(contentPadding = PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                val groups = shown.groupBy { it.weekStart }
+                groups.forEach { (week, list) ->
+                    item(key = "w$week") {
+                        Text(
+                            "Woche vom ${weekFmt.format(java.util.Date(week * 1000))} · ${list.size} Titel",
+                            style = MaterialTheme.typography.titleSmall, color = Gold,
+                            modifier = Modifier.padding(top = 8.dp, bottom = 2.dp)
+                        )
+                    }
+                    items(list, key = { it.key }) { d -> DiscCard(vm, d, openDetail) }
+                }
+                item {
+                    Text(
+                        "Quelle: AREA DVD (areadvd.de) – „Neuheiten der Woche“",
+                        style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DiscCard(vm: AppViewModel, d: de.marween.filmabend.DiscRelease, openDetail: (String, Int) -> Unit) {
+    var hit by remember(d.key) { mutableStateOf<CatalogItem?>(null) }
+    var looked by remember(d.key) { mutableStateOf(false) }
+    val ctx = LocalContext.current
+    LaunchedEffect(d.key) {
+        hit = de.marween.filmabend.TitleLookup.find(d.title)
+        looked = true
+    }
+    Card(
+        colors = CardDefaults.cardColors(containerColor = CardBg),
+        modifier = Modifier.fillMaxWidth().clickable { vm.withTitle(d.title) { openDetail(it.type, it.id) } }
+    ) {
+        Row(Modifier.padding(12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Poster(hit?.poster, hit?.type ?: "movie", Modifier.width(76.dp), corner = 6.dp)
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(d.title, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    d.formats.take(4).forEach { f ->
+                        Text(
+                            f, style = MaterialTheme.typography.labelSmall, color = Color.Black,
+                            modifier = Modifier.background(if (f == "4K") Gold else Color(0xFFBDB3CC), androidx.compose.foundation.shape.RoundedCornerShape(4.dp))
+                                .padding(horizontal = 5.dp, vertical = 1.dp)
+                        )
+                    }
+                }
+                hit?.let { h ->
+                    val sub = listOfNotNull(if (h.type == "tv") "Serie" else "Film", h.year.ifBlank { null }, h.genres.firstOrNull()).joinToString(" · ")
+                    Text(sub, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                if (looked && hit == null) Text("Keine weiteren Infos gefunden", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                TextButton(
+                    onClick = {
+                        val yt = Trailers.match(vm.trailers.value.items, d.title)
+                        val url = hit?.trailer
+                        openUrl(ctx, yt?.url ?: url ?: Catalog.youtubeTrailer(d.title))
+                    },
+                    contentPadding = PaddingValues(horizontal = 0.dp, vertical = 0.dp)
+                ) { Icon(Icons.Filled.PlayArrow, null); Text("Trailer") }
+                PartnerButtons(vm, d.title, hit?.key, { cb -> vm.withTitle(d.title) { cb(it.info) } })
             }
         }
     }
@@ -302,10 +393,8 @@ private fun MediathekCard(vm: AppViewModel, m: MediathekItem, onPlay: (String, S
                 if (m.website.isNotBlank()) TextButton(onClick = {
                     runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(m.website))) }
                 }) { Text("In der Mediathek öffnen") }
-                if (partner != null) TextButton(onClick = { vm.suggest(m.info, "Läuft in der ${m.channel}-Mediathek") }) {
-                    Text("${hh?.nameOf(partner)} vorschlagen")
-                }
             }
+            PartnerButtons(vm, m.name, m.key, { cb -> cb(m.info) })
         }
     }
 }
@@ -342,12 +431,8 @@ private fun NewCard(vm: AppViewModel, item: CatalogItem, onOpen: () -> Unit, onT
                     IconButton(onClick = { if (t != null) vm.setWatched(t.info, !watched) else vm.setWatched(item.info, true) }) {
                         Icon(if (watched) Icons.Filled.CheckCircle else Icons.Filled.CheckCircleOutline, "Gesehen", tint = if (watched) Gold else MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    if (partner != null) {
-                        IconButton(onClick = { vm.suggest(item.info, "") }) {
-                            Icon(Icons.AutoMirrored.Filled.Send, "Vorschlagen", tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    }
                 }
+                PartnerButtons(vm, item.title, item.key, { cb -> if (item.resolved) cb(item.info) else vm.withResolved(item) { cb(it.info) } })
             }
         }
     }

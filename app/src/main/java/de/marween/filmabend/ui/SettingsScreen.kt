@@ -49,6 +49,9 @@ private val changelog = listOf(
         "Neu: Seite „Neu & Trailer“ mit neuen Filmen (deutsche Trailer) und Serienstarts",
         "Trailer-Knopf auf jeder Film- und Serienseite",
         "Trailer: neueste deutsche Trailer von Netflix, Prime Video, Disney+, Paramount+, Sky, RTL+ & Kino",
+        "DVD & Blu-ray: Neuerscheinungen der letzten 8 Wochen",
+        "💑 Zusammen gucken: eure gemeinsame Liste – aus jedem Bereich unter „Neu“ mit einem Tipp",
+        "„An …“-Knopf überall: Titel mit Nachricht an den Partner schicken",
         "Mediatheken: neue Filme & Serien von ARD, ZDF, arte, 3sat, WDR, SWR, NDR, BR … direkt ansehen",
     ),
     "1.0" to listOf(

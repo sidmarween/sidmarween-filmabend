@@ -108,14 +108,14 @@ private fun SuggestionCard(
                 val status = when {
                     incoming && watchedByMe -> "✅ Schon gesehen"
                     !incoming && watchedByOther -> "✅ $otherName hat's gesehen"
-                    s.status == "angenommen" -> "🔖 Auf der Merkliste"
+                    s.status == "angenommen" -> "💑 Auf eurer Zusammen-Liste"
                     s.status == "abgelehnt" -> "🙅 Nein danke"
                     else -> if (incoming) null else "⏳ Noch keine Antwort"
                 }
                 status?.let { Text(it, style = MaterialTheme.typography.labelMedium, color = Gold) }
                 if (incoming && s.status == "offen" && !watchedByMe) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Button(onClick = onAccept) { Text("Merken") }
+                        Button(onClick = onAccept) { Text("💑 Zusammen gucken") }
                         OutlinedButton(onClick = onDecline) { Text("Nein danke") }
                     }
                 }

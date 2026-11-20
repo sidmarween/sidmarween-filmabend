@@ -20,6 +20,8 @@ data class Title(
     val seasonsWatched: Map<String, List<Int>>,
     val watchedAt: Map<String, Long>,
     val addedAt: Long,
+    val together: Boolean = false,
+    val togetherBy: String = "",
 ) {
     fun isWatched(uid: String?) = uid != null && watched[uid] == true
     fun onWatchlist(uid: String?) = uid != null && watchlist[uid] == true
@@ -51,6 +53,8 @@ data class Title(
                     } ?: emptyMap(),
                 watchedAt = longMap(doc.get("watchedAt")),
                 addedAt = (doc.get("addedAt") as? Number)?.toLong() ?: 0L,
+                together = doc.getBoolean("together") == true,
+                togetherBy = doc.getString("togetherBy") ?: "",
             )
         }
 

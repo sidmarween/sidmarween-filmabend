@@ -21,6 +21,12 @@ enum class RecMode { BOTH, ME, PARTNER }
 
 data class Rec(val item: CatalogItem, val score: Double, val reason: String)
 
+data class DiscState(
+    val loading: Boolean = false,
+    val items: List<DiscRelease> = emptyList(),
+    val error: String? = null,
+)
+
 data class TrState(
     val loading: Boolean = false,
     val items: List<TrailerItem> = emptyList(),
@@ -57,6 +63,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val newShows = MutableStateFlow(RecState())
     val mtFilms = MutableStateFlow(MtState())
     val trailers = MutableStateFlow(TrState())
+    val discs = MutableStateFlow(DiscState())
     val mtSeries = MutableStateFlow(MtState())
 
     private var userReg: ListenerRegistration? = null
@@ -253,6 +260,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         write(i, mapOf("watchlist" to mapOf(u to if (value) true else FieldValue.delete())))
     }
 
+    /** Gemeinsame Liste „Zusammen gucken“. */
+    fun setTogether(i: TitleInfo, value: Boolean) {
+        val u = uid.value ?: return
+        write(i, mapOf("together" to value, "togetherBy" to if (value) u else FieldValue.delete(), "togetherAt" to System.currentTimeMillis()))
+        if (value) message.value = "„${i.title}“ steht jetzt auf eurer Zusammen-Liste 💑"
+    }
+
     fun setRating(i: TitleInfo, rating: Int?) {
         val u = uid.value ?: return
         val ch = mutableMapOf<String, Any?>("ratings" to mapOf(u to (rating ?: FieldValue.delete())))
@@ -303,7 +317,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             ref.collection("suggestions").document(s.id)
                 .update(mapOf("status" to if (accept) "angenommen" else "abgelehnt", "seen" to true, "notified" to true)).await()
         }
-        if (accept) setWatchlist(TitleInfo(s.mediaId, s.type, s.title, s.year, s.poster, ""), true)
+        if (accept) setTogether(TitleInfo(s.mediaId, s.type, s.title, s.year, s.poster, ""), true)
     }
 
     fun deleteSuggestion(s: Suggestion) = run {
@@ -461,5 +475,23 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val best = hits.firstOrNull { normName(it.title) == n } ?: hits.firstOrNull()
             ?: throw IllegalStateException("„${tr.show}“ wurde in der Filmdatenbank nicht gefunden.")
         action(Catalog.resolve(best))
+    }
+
+    fun loadDiscs(force: Boolean = false) {
+        if (!force && (discs.value.loading || discs.value.items.isNotEmpty())) return
+        discs.value = discs.value.copy(loading = true, error = null)
+        viewModelScope.launch {
+            discs.value = try {
+                DiscState(items = DiscReleases.latest(8))
+            } catch (e: Exception) {
+                DiscState(error = e.localizedMessage ?: "DVD-Neuheiten konnten nicht geladen werden")
+            }
+        }
+    }
+
+    /** Titel (z. B. von einer DVD-Liste) in der Filmdatenbank suchen und damit [action] ausführen. */
+    fun withTitle(title: String, action: (CatalogItem) -> Unit) = run {
+        val hit = TitleLookup.find(title) ?: throw IllegalStateException("„$title“ wurde in der Filmdatenbank nicht gefunden.")
+        action(Catalog.resolve(hit))
     }
 }

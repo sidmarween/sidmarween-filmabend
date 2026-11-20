@@ -41,13 +41,14 @@ fun LibraryScreen(vm: AppViewModel, openDetail: (String, Int) -> Unit, openSearc
 
     var who by rememberSaveable { mutableIntStateOf(0) }
     var type by rememberSaveable { mutableIntStateOf(0) }
-    val whoOptions = listOf("Von mir gesehen", "Von $pName gesehen", "Von beiden", "Merkliste")
+    val whoOptions = listOf("💑 Zusammen gucken", "Von mir gesehen", "Von $pName gesehen", "Von beiden", "Merkliste")
 
     val list = titles.filter { typeMatches(type, it.type) }.let { all ->
         when (who) {
-            0 -> all.filter { it.isWatched(uid) }.sortedByDescending { it.watchedAt[uid] ?: 0L }
-            1 -> all.filter { it.isWatched(partner) }.sortedByDescending { it.watchedAt[partner] ?: 0L }
-            2 -> all.filter { it.isWatched(uid) && it.isWatched(partner) }
+            0 -> all.filter { it.together && !(it.isWatched(uid) && it.isWatched(partner)) }.sortedByDescending { it.addedAt }
+            1 -> all.filter { it.isWatched(uid) }.sortedByDescending { it.watchedAt[uid] ?: 0L }
+            2 -> all.filter { it.isWatched(partner) }.sortedByDescending { it.watchedAt[partner] ?: 0L }
+            3 -> all.filter { it.isWatched(uid) && it.isWatched(partner) }
                 .sortedByDescending { maxOf(it.watchedAt[uid] ?: 0L, it.watchedAt[partner] ?: 0L) }
             else -> all.filter { it.onWatchlist(uid) || it.onWatchlist(partner) }.sortedByDescending { it.addedAt }
         }
@@ -58,8 +59,9 @@ fun LibraryScreen(vm: AppViewModel, openDetail: (String, Int) -> Unit, openSearc
         ChipRow(TypeFilters, type, { type = it }, Modifier.padding(top = 2.dp))
         if (list.isEmpty()) {
             EmptyHint(
-                title = if (titles.isEmpty()) "Noch nichts eingetragen" else "Hier ist noch nichts",
+                title = if (titles.isEmpty()) "Noch nichts eingetragen" else if (who == 0) "Eure Zusammen-Liste ist leer" else "Hier ist noch nichts",
                 text = if (titles.isEmpty()) "Sucht einen Film oder eine Serie, die ihr schon gesehen habt, und hakt sie ab."
+                else if (who == 0) "Tippe unter „Neu“ oder bei einem Titel auf „Zusammen gucken“ – dann landet er hier, für euch beide."
                 else "Wechsle den Filter oben oder trag etwas Neues ein.",
             ) { Button(onClick = openSearch) { Text("Titel suchen") } }
         } else {
@@ -77,7 +79,7 @@ fun LibraryScreen(vm: AppViewModel, openDetail: (String, Int) -> Unit, openSearc
                 modifier = Modifier.fillMaxSize()
             ) {
                 items(list, key = { it.key }) { t ->
-                    TitleCard(t, uid, partner, who == 3, hh?.nameOf(partner)) { openDetail(t.type, t.mediaId) }
+                    TitleCard(t, uid, partner, who == 4, hh?.nameOf(partner)) { openDetail(t.type, t.mediaId) }
                 }
             }
         }

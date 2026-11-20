@@ -219,12 +219,7 @@ fun DetailScreen(vm: AppViewModel, type: String, id: Int, back: () -> Unit) {
                 }
             }
 
-            if (partner != null) {
-                Button(onClick = { showSuggest = true }, modifier = Modifier.fillMaxWidth().height(50.dp)) {
-                    Icon(Icons.AutoMirrored.Filled.Send, null)
-                    Spacer(Modifier.width(8.dp))
-                    Text("$pName vorschlagen")
-                }
+            PartnerButtons(vm, info.title, info.key, { cb -> cb(info) })
             }
 
             val overview = info.overview

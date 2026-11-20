@@ -570,3 +570,114 @@ object Trailers {
         return list.firstOrNull { normName(it.show) == n } ?: list.firstOrNull { n.length >= 6 && normName(it.title).contains(n) }
     }
 }
+
+// ======================= DVD- & Blu-ray-Neuheiten =======================
+
+data class DiscRelease(
+    val title: String,
+    val formats: List<String>,
+    val weekStart: Long,     // Sekunden
+    val source: String,
+) {
+    val key get() = "disc_" + normName(title)
+}
+
+/**
+ * Wöchentliche DVD-/Blu-ray-Neuheiten laut AREA DVD (areadvd.de, „Neuheiten der Woche“).
+ * Musik-Veröffentlichungen werden ausgelassen.
+ */
+object DiscReleases {
+    private val editionWords = Regex(
+        "\\s+-\\s+(steelbook|mediabook|fullsleeve|collector'?s edition|limited|limitierte|special edition|digipak|ultimate|deluxe|wattiertes|uncut|extended).*$",
+        RegexOption.IGNORE_CASE
+    )
+
+    private suspend fun get(url: String): String = withContext(Dispatchers.IO) {
+        val conn = URL(url).openConnection() as HttpURLConnection
+        conn.connectTimeout = 15000; conn.readTimeout = 20000
+        conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Android) Filmabend-App")
+        try {
+            if (conn.responseCode !in 200..299) throw IOException("AREA DVD nicht erreichbar (${conn.responseCode})")
+            conn.inputStream.bufferedReader().use { it.readText() }
+        } finally {
+            conn.disconnect()
+        }
+    }
+
+    private fun unescape(s: String) = s.replace("&amp;", "&").replace("&#038;", "&").replace("&#8211;", "–")
+        .replace("&#8217;", "’").replace("&#8220;", "“").replace("&#8222;", "„").replace("&quot;", "\"").replace("&#039;", "'")
+
+    private fun parsePost(html: String, weekStart: Long, link: String): List<DiscRelease> {
+        val start = html.indexOf("In den nächsten Tagen").takeIf { it >= 0 } ?: html.indexOf("In dieser Woche").takeIf { it >= 0 } ?: return emptyList()
+        val endCandidates = listOf("<p>Musik", "weitere Highlights", "alle Bluray Disc").map { html.indexOf(it, start) }.filter { it > 0 }
+        val end = endCandidates.minOrNull() ?: (start + 20000).coerceAtMost(html.length)
+        val part = html.substring(start, end)
+        val raw = Regex("<li>(.*?)</li>", RegexOption.DOT_MATCHES_ALL).findAll(part)
+            .map { unescape(it.groupValues[1].replace(Regex("<[^>]*>"), "")).trim() }
+            .filter { it.isNotBlank() }
+        val byTitle = LinkedHashMap<String, Pair<String, MutableSet<String>>>()
+        for (line in raw) {
+            val fmt = Regex("\\[([^\\]]+)\\]").find(line)?.groupValues?.get(1) ?: ""
+            if (fmt.contains("CD") || fmt.contains("LP")) continue
+            var title = line.replace(Regex("\\s*[\\[(][^\\])]*(blu-ray|dvd)[^\\])]*[\\])]", RegexOption.IGNORE_CASE), "").trim()
+            val edition = editionWords.find(title)?.value?.removePrefix(" - ")?.trim()
+            title = title.replace(editionWords, "").trim().trimEnd('-', '–', ' ')
+            if (title.length < 2) continue
+            val f = byTitle.getOrPut(normName(title)) { title to mutableSetOf() }.second
+            when {
+                fmt.contains("4K", true) -> f += "4K"
+                fmt.contains("Blu-ray", true) -> f += "Blu-ray"
+                fmt.contains("DVD", true) -> f += "DVD"
+            }
+            if (edition != null) f += edition.substringBefore(" ").replaceFirstChar { it.uppercase() }
+        }
+        return byTitle.values.map { (t, f) -> DiscRelease(t, f.sortedBy { listOf("4K", "Blu-ray", "DVD").indexOf(it).let { i -> if (i < 0) 9 else i } }, weekStart, link) }
+    }
+
+    /** Die letzten [weeks] Wochen, neueste zuerst. */
+    suspend fun latest(weeks: Int = 8): List<DiscRelease> = coroutineScope {
+        val rss = get("https://www.areadvd.de/?s=Neuheiten+der+Woche&feed=rss2")
+        val items = Regex("<item>(.*?)</item>", RegexOption.DOT_MATCHES_ALL).findAll(rss).mapNotNull { m ->
+            val e = m.groupValues[1]
+            val title = Regex("<title>(.*?)</title>").find(e)?.groupValues?.get(1) ?: ""
+            if (!title.contains("der Woche")) return@mapNotNull null
+            val link = Regex("<link>(.*?)</link>").find(e)?.groupValues?.get(1)?.trim() ?: return@mapNotNull null
+            val date = Regex("<pubDate>(.*?)</pubDate>").find(e)?.groupValues?.get(1)?.trim() ?: ""
+            val ts = runCatching {
+                java.time.ZonedDateTime.parse(date, java.time.format.DateTimeFormatter.RFC_1123_DATE_TIME).toEpochSecond()
+            }.getOrDefault(0L)
+            Triple(link, ts, title)
+        }.toList().take(weeks)
+        if (items.isEmpty()) throw IOException("Keine DVD-/Blu-ray-Neuheiten gefunden.")
+        val pages = items.map { (link, ts, _) ->
+            async { runCatching { parsePost(get(link), ts, link) }.getOrDefault(emptyList()) }
+        }.map { it.await() }
+        // Jeder Titel nur einmal (in der Woche, in der er zuerst auftaucht)
+        pages.flatten().sortedByDescending { it.weekStart }.distinctBy { it.key }
+    }
+}
+
+/** Kleiner Zwischenspeicher: passenden Katalog-Eintrag (Poster, Details) zu einem Titel finden. */
+object TitleLookup {
+    private val cache = HashMap<String, CatalogItem?>()
+    private val lock = kotlinx.coroutines.sync.Mutex()
+
+    suspend fun find(title: String): CatalogItem? {
+        val k = normName(title)
+        if (cache.containsKey(k)) return cache[k]
+        return lock.withLockCompat {
+            if (cache.containsKey(k)) return@withLockCompat cache[k]
+            kotlinx.coroutines.delay(350) // iTunes erlaubt nur ~20 Abfragen pro Minute
+            val hit = runCatching {
+                val hits = Catalog.search(title)
+                hits.firstOrNull { normName(it.title) == k } ?: hits.firstOrNull { normName(it.title).startsWith(k) } ?: hits.firstOrNull()
+            }.getOrNull()
+            cache[k] = hit
+            hit
+        }
+    }
+
+    private suspend fun <T> kotlinx.coroutines.sync.Mutex.withLockCompat(block: suspend () -> T): T {
+        lock(); try { return block() } finally { unlock() }
+    }
+}
