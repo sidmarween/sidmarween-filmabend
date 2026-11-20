@@ -28,6 +28,7 @@ import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -80,6 +81,7 @@ fun DetailScreen(vm: AppViewModel, type: String, id: Int, back: () -> Unit) {
     var detail by remember { mutableStateOf<CatalogDetail?>(null) }
     var loadError by remember { mutableStateOf<String?>(null) }
     var showSuggest by remember { mutableStateOf(false) }
+    var showTrailer by remember { mutableStateOf(false) }
 
     LaunchedEffect(type, id) {
         try { detail = Catalog.details(type, id) } catch (e: Exception) { loadError = e.localizedMessage }
@@ -150,6 +152,21 @@ fun DetailScreen(vm: AppViewModel, type: String, id: Int, back: () -> Unit) {
                 )
             }
 
+            val ctx = androidx.compose.ui.platform.LocalContext.current
+            val trailerUrl = detail?.item?.trailer
+            androidx.compose.material3.FilledTonalButton(
+                onClick = {
+                    if (trailerUrl != null) showTrailer = true
+                    else ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW,
+                        android.net.Uri.parse(Catalog.youtubeTrailer(info.title, info.year))))
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(androidx.compose.material.icons.Icons.Filled.PlayArrow, null)
+                Spacer(Modifier.width(6.dp))
+                Text(if (trailerUrl != null) "Trailer ansehen" else "Deutschen Trailer auf YouTube suchen")
+            }
+
             // ---- Bewertung ----
             SectionCard {
                 Text("Deine Bewertung", style = MaterialTheme.typography.titleMedium)
@@ -216,6 +233,10 @@ fun DetailScreen(vm: AppViewModel, type: String, id: Int, back: () -> Unit) {
             }
             Text(if (info.type == "tv") "Seriendaten: TVmaze.com" else "Filmdaten: Apple iTunes Store", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
+    }
+
+    if (showTrailer) {
+        detail?.item?.trailer?.let { TrailerDialog(detail?.item?.title ?: "", it) { showTrailer = false } }
     }
 
     if (showSuggest && info != null) {

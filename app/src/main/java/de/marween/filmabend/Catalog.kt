@@ -28,6 +28,9 @@ data class CatalogItem(
     val overview: String,
     val vote: Double,
     val genres: List<String> = emptyList(),
+    val trailer: String? = null,   // Apple-Vorschau (deutsch) – nur bei Filmen
+    val extra: String = "",        // z. B. „ab 25.11. bei Netflix“
+    val weight: Int = 0,
 ) {
     val key get() = if (id == 0) "tvname_${normName(title)}" else keyOf(type, id)
     val resolved get() = id != 0
@@ -135,6 +138,7 @@ object Catalog {
             overview = o.str("longDescription").ifBlank { o.str("shortDescription") },
             vote = 0.0,
             genres = listOf(o.str("primaryGenreName")).filter { it.isNotBlank() }.map { genre(it) },
+            trailer = o.str("previewUrl").ifBlank { null },
         )
     }
 
@@ -231,6 +235,56 @@ object Catalog {
     suspend fun details(type: String, id: Int): CatalogDetail =
         if (type == "tv") showDetail(id) else movieDetail(id)
 
+    /** Neue Filme: aktuelle deutsche iTunes-Charts, nur Titel der letzten 12 Monate, mit Trailer. */
+    suspend fun newMovies(): List<CatalogItem> {
+        val cutoff = java.time.LocalDate.now().minusMonths(12).year * 10000 + java.time.LocalDate.now().monthValue * 100
+        return charts("movie", null, 100).filter { m ->
+            // extra = "Erschienen TT.MM.JJJJ"
+            val d = m.extra.removePrefix("Erschienen ").split(".")
+            val num = if (d.size == 3) (d[2].toIntOrNull() ?: 0) * 10000 + (d[1].toIntOrNull() ?: 0) * 100 else 0
+            num >= cutoff
+        }
+    }
+
+    /**
+     * Neue Serien: Staffel-1-Starts bei Streamingdiensten (Netflix, Prime, Disney+ …)
+     * der letzten 10 und nächsten 14 Tage, laut TVmaze-Programm.
+     */
+    suspend fun newShows(): List<CatalogItem> = coroutineScope {
+        val today = java.time.LocalDate.now()
+        val fmt = java.time.format.DateTimeFormatter.ofPattern("dd.MM.")
+        val days = (-10..14).map { today.plusDays(it.toLong()) }
+        val found = LinkedHashMap<Int, CatalogItem>()
+        for (chunk in days.chunked(6)) {
+            val arrays = chunk.map { d -> async { d to runCatching { JSONArray(fetch("https://api.tvmaze.com/schedule/web?date=$d")) }.getOrNull() } }
+            for ((d, arr) in arrays.map { it.await() }) {
+                if (arr == null) continue
+                for (i in 0 until arr.length()) {
+                    val ep = arr.optJSONObject(i) ?: continue
+                    if (ep.optInt("season") != 1 || ep.optInt("number") != 1) continue
+                    val show = ep.optJSONObject("_embedded")?.optJSONObject("show") ?: continue
+                    val lang = show.str("language")
+                    if (lang != "English" && lang != "German") continue
+                    val item = parseShow(show) ?: continue
+                    if (item.poster == null || found.containsKey(item.id)) continue
+                    val where = show.optJSONObject("webChannel")?.str("name") ?: ""
+                    val whenText = (if (d.isAfter(today)) "ab " else if (d == today) "seit heute" else "seit ") +
+                        (if (d == today) "" else d.format(fmt))
+                    found[item.id] = item.copy(
+                        extra = listOf("Neu $whenText".trim(), where).filter { it.isNotBlank() }.joinToString(" bei "),
+                        weight = show.optInt("weight"),
+                    )
+                }
+            }
+            kotlinx.coroutines.delay(700) // TVmaze erlaubt nur ~20 Abrufe pro 10 Sekunden
+        }
+        found.values.sortedByDescending { it.weight }
+    }
+
+    /** YouTube-Suche nach dem deutschen Trailer. */
+    fun youtubeTrailer(title: String, year: String = ""): String =
+        "https://www.youtube.com/results?search_query=" + enc("$title ${year.take(4)} Trailer Deutsch".replace("  ", " "))
+
     /** Aktuelle iTunes-Charts (Deutschland), optional für ein Genre. */
     suspend fun charts(type: String, genre: String? = null, limit: Int = 50): List<CatalogItem> {
         val gid = genre?.let { if (type == "tv") tvGenreIds[it] else movieGenreIds[it] }
@@ -257,10 +311,20 @@ object Catalog {
                 )
             } else {
                 val id = o.optJSONObject("id")?.optJSONObject("attributes")?.str("im:id")?.toIntOrNull() ?: return@mapNotNull null
+                val links = o.opt("link")
+                val linkList = when (links) {
+                    is JSONArray -> (0 until links.length()).mapNotNull { links.optJSONObject(it) }
+                    is JSONObject -> listOf(links)
+                    else -> emptyList()
+                }
+                val trailer = linkList.mapNotNull { it.optJSONObject("attributes") }
+                    .firstOrNull { it.str("rel") == "enclosure" }?.str("href")?.ifBlank { null }
+                val dateLabel = o.optJSONObject("im:releaseDate")?.optJSONObject("attributes")?.str("label") ?: ""
                 CatalogItem(
                     id = id, type = "movie", title = o.label("im:name"), year = year,
                     poster = bigArt(img, "400x600"), overview = o.label("summary"), vote = 0.0,
-                    genres = listOf(genre(cat)),
+                    genres = listOf(genre(cat)), trailer = trailer,
+                    extra = if (dateLabel.isNotBlank()) "Erschienen $dateLabel" else "",
                 )
             }
         }.distinctBy { it.key }

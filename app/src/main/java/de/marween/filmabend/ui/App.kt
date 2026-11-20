@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Leaderboard
 import androidx.compose.material.icons.filled.Mail
+import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.VideoLibrary
@@ -106,7 +107,7 @@ private fun MainShell(vm: AppViewModel, tab: Int, setTab: (Int) -> Unit) {
                     TopAppBar(
                         title = {
                             Text(
-                                listOf("Unsere Filme & Serien", "Entdecken", "Unsere Charts", "Post")[tab],
+                                listOf("Unsere Filme & Serien", "Entdecken", "Neu & Trailer", "Unsere Charts", "Post")[tab],
                                 fontWeight = FontWeight.Bold
                             )
                         },
@@ -121,8 +122,9 @@ private fun MainShell(vm: AppViewModel, tab: Int, setTab: (Int) -> Unit) {
                     NavigationBar {
                         NavigationBarItem(tab == 0, { setTab(0) }, { Icon(Icons.Filled.VideoLibrary, null) }, label = { Text("Bibliothek") })
                         NavigationBarItem(tab == 1, { setTab(1) }, { Icon(Icons.Filled.AutoAwesome, null) }, label = { Text("Entdecken") })
-                        NavigationBarItem(tab == 2, { setTab(2) }, { Icon(Icons.Filled.Leaderboard, null) }, label = { Text("Charts") })
-                        NavigationBarItem(tab == 3, { setTab(3) }, {
+                        NavigationBarItem(tab == 2, { setTab(2) }, { Icon(Icons.Filled.Movie, null) }, label = { Text("Neu") })
+                        NavigationBarItem(tab == 3, { setTab(3) }, { Icon(Icons.Filled.Leaderboard, null) }, label = { Text("Charts") })
+                        NavigationBarItem(tab == 4, { setTab(4) }, {
                             BadgedBox(badge = { if (unseen > 0) Badge { Text("$unseen") } }) { Icon(Icons.Filled.Mail, null) }
                         }, label = { Text("Post") })
                     }
@@ -133,7 +135,8 @@ private fun MainShell(vm: AppViewModel, tab: Int, setTab: (Int) -> Unit) {
                     when (tab) {
                         0 -> LibraryScreen(vm, openDetail) { open(Screen.Search) }
                         1 -> DiscoverScreen(vm, openDetail)
-                        2 -> ChartsScreen(vm, openDetail)
+                        2 -> NewScreen(vm, openDetail)
+                        3 -> ChartsScreen(vm, openDetail)
                         else -> PostScreen(vm, openDetail)
                     }
                 }

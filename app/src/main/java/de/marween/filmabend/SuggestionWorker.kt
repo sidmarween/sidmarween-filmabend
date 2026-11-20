@@ -84,7 +84,7 @@ class SuggestionWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker
             ) return
             val open = PendingIntent.getActivity(
                 ctx, 0,
-                Intent(ctx, MainActivity::class.java).putExtra("tab", 3).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+                Intent(ctx, MainActivity::class.java).putExtra("tab", 4).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
             )
             val n = NotificationCompat.Builder(ctx, CHANNEL)

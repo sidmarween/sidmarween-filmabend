@@ -46,6 +46,8 @@ private val changelog = listOf(
     "1.1" to listOf(
         "Behoben: Gesehen-Haken und Bewertungen reagierten direkt nach dem Anlegen der Liste nicht",
         "Englische Beschreibungen werden automatisch ins Deutsche übersetzt",
+        "Neu: Seite „Neu & Trailer“ mit neuen Filmen (deutsche Trailer) und Serienstarts",
+        "Trailer-Knopf auf jeder Film- und Serienseite",
     ),
     "1.0" to listOf(
         "Erste Version: gemeinsame Bibliothek für Filme & Serien",

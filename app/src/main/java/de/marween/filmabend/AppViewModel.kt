@@ -41,6 +41,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val suggestions = MutableStateFlow<List<Suggestion>>(emptyList())
     val recs = MutableStateFlow(RecState())
     val message = MutableStateFlow<String?>(null)
+    val newMovies = MutableStateFlow(RecState())
+    val newShows = MutableStateFlow(RecState())
 
     private var userReg: ListenerRegistration? = null
     private val hhRegs = mutableListOf<ListenerRegistration>()
@@ -391,6 +393,23 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 recs.value = RecState(items = ranked)
             } catch (e: Exception) {
                 recs.value = RecState(error = e.localizedMessage ?: "Vorschläge konnten nicht geladen werden")
+            }
+        }
+    }
+
+    // ---------- Neu & Trailer ----------
+
+    fun loadNew(type: String, force: Boolean = false) {
+        val flow = if (type == "tv") newShows else newMovies
+        if (!force && (flow.value.loading || flow.value.items.isNotEmpty())) return
+        flow.value = flow.value.copy(loading = true, error = null)
+        viewModelScope.launch {
+            try {
+                val list = if (type == "tv") Catalog.newShows() else Catalog.newMovies()
+                if (list.isEmpty()) throw IllegalStateException("Gerade keine Neuheiten gefunden – später nochmal probieren.")
+                flow.value = RecState(items = list.map { Rec(it, 0.0, it.extra) })
+            } catch (e: Exception) {
+                flow.value = RecState(error = e.localizedMessage ?: "Neuheiten konnten nicht geladen werden")
             }
         }
     }
