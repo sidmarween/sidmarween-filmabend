@@ -163,11 +163,11 @@ private fun TrailerList(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
     val partner = hh?.partnerOf(uid)
     val ctx = LocalContext.current
     var provider by rememberSaveable { mutableIntStateOf(0) }
-    val providers = listOf("Alle") + Trailers.channels.keys.filter { p -> state.items.any { it.provider == p } }
+    val providers = listOf("Alle") + (listOf("Neue Filme", "Neue Serien") + Trailers.channels.keys).filter { p -> state.items.any { it.provider == p } }
     val shown = if (provider == 0 || provider >= providers.size) state.items else state.items.filter { it.provider == providers[provider] }
 
     Text(
-        "Die neuesten deutschen Trailer von Netflix, Prime Video, Disney+, Paramount+, Sky, RTL+, ARD, ZDF und fürs Kino.",
+        "${state.items.size} Trailer: die neuesten von Netflix, Prime Video, Disney+, Paramount+, Sky, RTL+, ARD, ZDF & Kino – plus Trailer zu allen neuen Filmen & Serien.",
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)

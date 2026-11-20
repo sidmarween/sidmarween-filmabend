@@ -249,14 +249,30 @@ object Catalog {
     }
 
     /** Neue Filme: aktuelle deutsche iTunes-Charts, nur Titel der letzten 12 Monate, mit Trailer. */
-    suspend fun newMovies(): List<CatalogItem> {
+    suspend fun newMovies(): List<CatalogItem> = coroutineScope {
         val cutoff = java.time.LocalDate.now().minusMonths(12).year * 10000 + java.time.LocalDate.now().monthValue * 100
-        return charts("movie", null, 100).filter { m ->
-            // extra = "Erschienen TT.MM.JJJJ"
-            val d = m.extra.removePrefix("Erschienen ").split(".")
-            val num = if (d.size == 3) (d[2].toIntOrNull() ?: 0) * 10000 + (d[1].toIntOrNull() ?: 0) * 100 else 0
-            num >= cutoff
+        val year = java.time.LocalDate.now().year
+        // 1) Neue, beliebte Filme laut JustWatch (dieses & letztes Jahr) – meist mit Trailer
+        val jw = async {
+            runCatching { JW.popular("movie", first = 100, minYear = year - 1) }.getOrDefault(emptyList())
+                .map { it.copy(extra = listOfNotNull(it.year.ifBlank { null }, if (it.vote > 0) "IMDb ${fmt1(it.vote)}" else null).joinToString(" · ")) }
         }
+        // 2) Aktuelle iTunes-Charts (mit Apple-Trailer zum direkten Abspielen)
+        val itunes = async {
+            runCatching { charts("movie", null, 100) }.getOrDefault(emptyList()).filter { m ->
+                val d = m.extra.removePrefix("Erschienen ").split(".")
+                val num = if (d.size == 3) (d[2].toIntOrNull() ?: 0) * 10000 + (d[1].toIntOrNull() ?: 0) * 100 else 0
+                num >= cutoff
+            }
+        }
+        val a = jw.await(); val b = itunes.await()
+        val seen = HashSet<String>()
+        val out = ArrayList<CatalogItem>()
+        for (i in 0 until maxOf(a.size, b.size)) {
+            if (i < a.size && seen.add(normName(a[i].title))) out += a[i]
+            if (i < b.size && seen.add(normName(b[i].title))) out += b[i]
+        }
+        out
     }
 
     /**
@@ -291,7 +307,12 @@ object Catalog {
             }
             kotlinx.coroutines.delay(700) // TVmaze erlaubt nur ~20 Abrufe pro 10 Sekunden
         }
-        found.values.sortedByDescending { it.weight }
+        val premieres = found.values.sortedByDescending { it.weight }
+        // Dazu: beliebte neue Serien laut JustWatch (dieses & letztes Jahr)
+        val jw = runCatching { JW.popular("tv", first = 100, minYear = today.year - 1) }.getOrDefault(emptyList())
+            .map { it.copy(extra = listOfNotNull("Neue Serie ${it.year}".trim(), if (it.vote > 0) "IMDb ${fmt1(it.vote)}" else null).joinToString(" · ")) }
+        val names = premieres.map { normName(it.title) }.toHashSet()
+        premieres + jw.filter { names.add(normName(it.title)) }
     }
 
     /** YouTube-Suche nach dem deutschen Trailer. */
@@ -571,9 +592,28 @@ object Trailers {
 
     /** Alle neuesten Trailer aller Kanäle, neueste zuerst. */
     suspend fun latest(): List<TrailerItem> = coroutineScope {
-        val all = channels.map { (p, id) -> async { feed(p, id) } }.flatMap { it.await() }
-        if (all.isEmpty()) throw IOException("YouTube gerade nicht erreichbar.")
-        all.sortedByDescending { it.published }.distinctBy { it.videoId }
+        val feeds = channels.map { (p, id) -> async { feed(p, id) } }
+        // Zusätzlich: Trailer zu allen neuen, beliebten Filmen & Serien (JustWatch, dieses & letztes Jahr)
+        val year = java.time.LocalDate.now().year
+        val jwJobs = listOf("movie", "tv").map { t ->
+            async { runCatching { JW.popular(t, first = 100, minYear = year - 1) }.getOrDefault(emptyList()) }
+        }
+        val yt = feeds.flatMap { it.await() }.sortedByDescending { it.published }
+        val jw = jwJobs.flatMap { it.await() }.filter { it.yt != null }.map { c ->
+            TrailerItem(
+                videoId = c.yt!!, title = "${c.title} – Trailer", show = c.title,
+                provider = if (c.type == "tv") "Neue Serien" else "Neue Filme",
+                published = 0L, thumb = "https://i.ytimg.com/vi/${c.yt}/hqdefault.jpg",
+                description = c.overview,
+            )
+        }
+        val all = (yt + jw).distinctBy { it.videoId }
+        if (all.isEmpty()) throw IOException("Trailer gerade nicht erreichbar.")
+        // Abwechselnd: frische Kanal-Trailer und Trailer zu neuen Titeln
+        val out = ArrayList<TrailerItem>()
+        val a = all.filter { it.published > 0 }; val b = all.filter { it.published == 0L }
+        for (i in 0 until maxOf(a.size, b.size)) { if (i < a.size) out += a[i]; if (i < b.size) out += b[i] }
+        out
     }
 
     /** Passenden Trailer zu einem Titel finden. */
