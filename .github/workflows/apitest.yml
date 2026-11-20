@@ -10,6 +10,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: |
-          python3 resolve.py || true
+          python3 jwresolve.py || true
           git config user.name bot; git config user.email bot@example.com
-          git add resolved.txt && git commit -qm resolved && git push -q origin apitest
+          git add whatsapp_gesehen.json jwlog.txt && git commit -qm jw && git push -q origin apitest
