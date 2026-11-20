@@ -1,15 +1,85 @@
-200 30162 image/jpeg https://images-na.ssl-images-amazon.com/images/P/B0HMR5W21J.01.LZZZZZZZ.jpg
-200 30162 image/jpeg https://m.media-amazon.com/images/P/B0HMR5W21J.01._SCLZZZZZZZ_.jpg
-000 0  https://ws-eu.amazon-adsystem.com/widgets/q?_encoding=UTF8&ASIN=B0HMR5W21J&Format=_SL250_&ID=AsinImage&MarketPlace=DE&ServiceVersion=20070822&WS=1
-fail https://ws-eu.amazon-adsystem.com/widgets/q?_encoding=UTF8&ASIN=B0HMR5W21J&Format=_SL250_&ID=AsinImage&MarketPlace=DE&ServiceVersion=20070822&WS=1
-200 38170 image/jpeg https://images-na.ssl-images-amazon.com/images/P/B0HM1HFRH2.01.LZZZZZZZ.jpg
-200 38170 image/jpeg https://m.media-amazon.com/images/P/B0HM1HFRH2.01._SCLZZZZZZZ_.jpg
-000 0  https://ws-eu.amazon-adsystem.com/widgets/q?_encoding=UTF8&ASIN=B0HM1HFRH2&Format=_SL250_&ID=AsinImage&MarketPlace=DE&ServiceVersion=20070822&WS=1
-fail https://ws-eu.amazon-adsystem.com/widgets/q?_encoding=UTF8&ASIN=B0HM1HFRH2&Format=_SL250_&ID=AsinImage&MarketPlace=DE&ServiceVersion=20070822&WS=1
-200 31418 image/jpeg https://images-na.ssl-images-amazon.com/images/P/B0HGZYZD1H.01.LZZZZZZZ.jpg
-200 31418 image/jpeg https://m.media-amazon.com/images/P/B0HGZYZD1H.01._SCLZZZZZZZ_.jpg
-000 0  https://ws-eu.amazon-adsystem.com/widgets/q?_encoding=UTF8&ASIN=B0HGZYZD1H&Format=_SL250_&ID=AsinImage&MarketPlace=DE&ServiceVersion=20070822&WS=1
-fail https://ws-eu.amazon-adsystem.com/widgets/q?_encoding=UTF8&ASIN=B0HGZYZD1H&Format=_SL250_&ID=AsinImage&MarketPlace=DE&ServiceVersion=20070822&WS=1
-itunes 200 42 Die%20Odyssee
-itunes 200 42 Der%20Chef
-itunes 200 42 Deep%20Water
+== https://itunes.apple.com/search?term=Odyssee&country=de&media=movie&entity=movie&limit=2
+
+
+
+{
+ "resultCount":0,
+ "results": []
+}
+
+
+
+== https://itunes.apple.com/search?term=Odyssee&country=de&media=movie&limit=2
+
+
+
+{
+ "resultCount":0,
+ "results": []
+}
+
+
+
+== https://itunes.apple.com/search?term=Odyssee&media=movie&limit=2
+
+
+
+{
+ "resultCount":0,
+ "results": []
+}
+
+
+
+== https://itunes.apple.com/search?term=Barbie&country=de&media=movie&entity=movie&limit=2
+
+
+
+{
+ "resultCount":0,
+ "results": []
+}
+
+
+
+== https://itunes.apple.com/search?term=Barbie&country=us&media=movie&entity=movie&limit=2
+
+
+
+{
+ "resultCount":0,
+ "results": []
+}
+
+
+
+== https://itunes.apple.com/search?term=Tom+Hanks&country=de&media=movie&entity=movie&attribute=actorTerm&limit=2
+
+
+
+{
+ "resultCount":0,
+ "results": []
+}
+
+
+
+== https://itunes.apple.com/lookup?id=1873271169&country=de
+
+
+
+{
+ "resultCount":1,
+ "results": [
+{"wrapperType":"track", "kind":"feature-movie", "collectionId":6807681215, "trackId":1873271169, "artistName":"Park Chan-Wook", "collectionName":"Koreanisches Kino von Park Chan-wook – 4-Film-Bundle", "trackName":"No Other Choice", "collectionCensoredName":"Koreanisches Kino von Park Chan-wook – 4-Film-Bundle", "trackCensoredName":"No Other Choice", "collec
+== https://itunes.apple.com/search?term=Barbie&country=de&entity=movie&limit=2
+
+
+
+{
+ "resultCount":0,
+ "results": []
+}
+
+
+
