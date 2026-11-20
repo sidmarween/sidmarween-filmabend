@@ -249,13 +249,13 @@ private fun TvList(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
     val fmt = java.text.SimpleDateFormat("EE dd.MM. HH:mm", java.util.Locale.GERMANY)
 
     Text(
-        "TV-Sendungen der nächsten 7 Tage – sortiert nach dem, was ihr gut bewertet habt.",
+        "${state.items.size} Sendungen & Serien von ARD, ZDF, arte, 3sat, RTL+, Joyn (ProSieben/Sat.1), DMAX, TELE 5, ServusTV & mehr – sortiert nach eurem Geschmack.",
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
     )
     when {
-        state.loading && state.items.isEmpty() -> Loading("Fernsehprogramm wird durchsucht …")
+        state.loading && state.items.isEmpty() -> Loading("Alle Sender werden durchsucht …")
         state.error != null -> EmptyHint("Kein Programm", state.error ?: "") {
             TextButton(onClick = { vm.loadTv(force = true) }) { Text("Nochmal versuchen") }
         }
@@ -263,11 +263,11 @@ private fun TvList(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
             ChipRow(listOf("Alle Sender", "Öffentlich-rechtlich", "Privat"), which, { which = it; kind = 0 })
             if (kinds.size > 2) ChipRow(kinds, kind, { kind = it }, Modifier.padding(top = 2.dp))
             LazyColumn(contentPadding = PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                items(shown.filterNot { seen(it.show.item.key, it.show.item.title) }.take(150), key = { it.show.item.key }) { r ->
+                items(shown.filterNot { seen(it.show.item.key, it.show.item.title) }.take(500), key = { it.show.item.key }) { r ->
                     val s = r.show
-                    val more = if (s.airings > 1) " (+${s.airings - 1} weitere)" else ""
+                    val whenTxt = if (s.nextAir > 0) "📺 ${fmt.format(java.util.Date(s.nextAir * 1000))} · " else "▶ Abrufbar bei "
                     val item = s.item.copy(
-                        extra = "${fmt.format(java.util.Date(s.nextAir * 1000))} · ${s.network}$more\n${s.kind} · ${r.reason}",
+                        extra = "$whenTxt${s.network}\n${s.kind} · ${r.reason}",
                     )
                     NewCard(
                         vm, item,

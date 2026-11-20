@@ -843,7 +843,7 @@ object GermanTv {
         "swr", "swr fernsehen", "br", "br fernsehen", "hr", "hr-fernsehen", "mdr", "rbb", "sr", "radio bremen",
         "one", "kika", "phoenix", "tagesschau24", "funk",
     )
-    private val skipTypes = setOf("News", "Sports")
+    private val skipTypes = setOf("News")
 
     private fun kindOf(type: String, genres: List<String>): String = when (type) {
         "Reality" -> "Reality-TV"
@@ -856,7 +856,52 @@ object GermanTv {
         else -> genres.firstOrNull() ?: type.ifBlank { "Sendung" }
     }
 
+    /** Deutsche Sender & ihre Mediatheken/Streamingdienste bei JustWatch (Kürzel -> Name, öffentlich-rechtlich?) */
+    val channels = listOf(
+        Triple("dem", "ARD Mediathek", true), Triple("zdf", "ZDF", true), Triple("art", "arte", true),
+        Triple("3st", "3sat", true), Triple("kka", "KiKA", true), Triple("fnk", "funk", true),
+        Triple("rps", "RTL+", false), Triple("jyn", "Joyn (ProSieben/Sat.1)", false), Triple("p7m", "ProSieben MAXX", false),
+        Triple("tle", "TELE 5", false), Triple("son", "ServusTV", false), Triple("dmx", "DMAX", false),
+        Triple("nit", "NITRO", false), Triple("ptv", "Pluto TV", false), Triple("tog", "Toggo", false),
+    )
+
+    /**
+     * Sendungen der deutschen TV-Sender (öffentlich-rechtlich & privat):
+     * die beliebtesten Shows & Serien in ihren Mediatheken (JustWatch) – plus das, was laut TVmaze-Programm gerade läuft.
+     */
     suspend fun upcoming(days: Int = 7): List<TvShow> = coroutineScope {
+        val shows = LinkedHashMap<String, TvShow>()
+        for (chunk in channels.chunked(4)) {
+            val res = chunk.map { (code, name, pub) ->
+                async { Triple(name, pub, runCatching { JW.popular("tv", first = 80, packages = listOf(code)) }.getOrDefault(emptyList())) }
+            }.map { it.await() }
+            for ((name, pub, list) in res) {
+                list.forEachIndexed { idx, item ->
+                    val k = normName(item.title)
+                    val ex = shows[k]
+                    if (ex != null) {
+                        if (!ex.network.contains(name)) shows[k] = ex.copy(network = ex.network + " · " + name, public = ex.public || pub, airings = ex.airings + 1)
+                    } else {
+                        shows[k] = TvShow(
+                            item.copy(weight = (100 - idx).coerceAtLeast(1)), name, pub,
+                            item.genres.firstOrNull() ?: "Sendung", 0L, 1,
+                        )
+                    }
+                }
+            }
+            kotlinx.coroutines.delay(700)
+        }
+        // Was laut TVmaze-Programm in den nächsten Tagen im deutschen Fernsehen läuft
+        runCatching { schedule(days) }.getOrDefault(emptyList()).forEach { s ->
+            val k = normName(s.item.title)
+            val ex = shows[k]
+            shows[k] = if (ex != null) ex.copy(nextAir = s.nextAir, network = if (ex.network.contains(s.network)) ex.network else s.network + " · " + ex.network) else s
+        }
+        if (shows.isEmpty()) throw IOException("Fernsehprogramm gerade nicht erreichbar.")
+        shows.values.toList()
+    }
+
+    private suspend fun schedule(days: Int): List<TvShow> = coroutineScope {
         val today = java.time.LocalDate.now()
         val zone = java.time.ZoneId.of("Europe/Berlin")
         val nowSec = System.currentTimeMillis() / 1000
@@ -900,9 +945,7 @@ object GermanTv {
                     shows[sid] = TvShow(item, net, net.lowercase() in publicNetworks, kindOf(type, genres), air, 1)
                 }
             }
-            kotlinx.coroutines.delay(600)
         }
-        if (shows.isEmpty()) throw IOException("Fernsehprogramm gerade nicht erreichbar.")
         shows.values.toList()
     }
 
@@ -996,8 +1039,9 @@ object JW {
         edges(gql(POPULAR, JSONObject().put("first", first).put("filter", JSONObject().put("searchQuery", q))))
 
     /** Beliebte Titel, optional nach Typ ("movie"/"tv"), Genres, Erscheinungsjahr oder Person. */
-    suspend fun popular(type: String? = null, genres: List<String> = emptyList(), first: Int = 40, minYear: Int? = null, personId: Int? = null): List<CatalogItem> {
+    suspend fun popular(type: String? = null, genres: List<String> = emptyList(), first: Int = 40, minYear: Int? = null, personId: Int? = null, packages: List<String> = emptyList()): List<CatalogItem> {
         val f = JSONObject()
+        if (packages.isNotEmpty()) f.put("packages", JSONArray(packages))
         if (type != null) f.put("objectTypes", JSONArray().put(if (type == "tv") "SHOW" else "MOVIE"))
         if (genres.isNotEmpty()) f.put("genres", JSONArray(genres))
         if (minYear != null) f.put("releaseYear", JSONObject().put("min", minYear))

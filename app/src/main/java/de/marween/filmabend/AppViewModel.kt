@@ -594,7 +594,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     val best = listOfNotNull(known?.rating(u), known?.rating(p)).maxOrNull()
                     val genreScore = s.item.genres.sumOf { (taste[it] ?: 0.0) / maxTaste }
                     val topGenre = s.item.genres.filter { (taste[it] ?: 0.0) > 0 }.maxByOrNull { taste[it] ?: 0.0 }
-                    var score = genreScore * 3 + s.item.weight / 40.0
+                    var score = genreScore * 3 + s.item.weight / 40.0 + (if (s.nextAir > 0) 1.0 else 0.0)
                     val reason = when {
                         best != null && best >= 7 -> { score += 10; "Habt ihr mit $best/10 bewertet – läuft wieder" }
                         best != null && best <= 4 -> { score -= 10; "Fandet ihr nicht so gut" }
