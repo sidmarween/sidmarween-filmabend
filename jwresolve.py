@@ -11,8 +11,12 @@ for line in open('titles.txt',encoding='utf-8'):
     line=line.strip()
     if not line: continue
     title,year,typ=(line.split('|')+['',''])[:3]
-    try: nodes=search(title)
-    except Exception as e:
+    nodes=None
+    for attempt in range(4):
+        try: nodes=search(title); break
+        except Exception as e:
+            time.sleep(20*(attempt+1))
+    if nodes is None:
         nodes=[]; log.append('ERR '+title)
     want='SHOW' if typ=='tv' else ('MOVIE' if typ=='movie' else None)
     def score(n):
@@ -34,6 +38,6 @@ for line in open('titles.txt',encoding='utf-8'):
     else:
         out.append({"title":title,"type":typ or "movie","year":year,"query":title})
         log.append(f"--  {title}" + (f" (best: {best['content']['title']} s={score(best)})" if best else ""))
-    time.sleep(0.3)
+    time.sleep(1.2)
 json.dump(out,open('whatsapp_gesehen.json','w',encoding='utf-8'),ensure_ascii=False,indent=0)
 open('jwlog.txt','w').write('\n'.join(log))
