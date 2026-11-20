@@ -10,16 +10,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: |
-          : > yt.txt
-          for h in NetflixDE NetflixDACH netflixdach Netflix NetflixDeutschland AppleTVDE AppleTVplusDE appletvdeutschland AppleTV WOWTVde wow_de WOW ARD DasErste ardmediathek artede ARTEde arte MagentaTVDE warnerbrosde SonyPicturesDE UniversalPicturesDE DisneyDE KinoCheck; do
-            id=$(curl -sSL -A "Mozilla/5.0" -H "Accept-Language: de" -b "SOCS=CAI; CONSENT=YES+1" "https://www.youtube.com/@$h" | grep -o '"externalId":"[^"]*"' | head -1 | cut -d'"' -f4)
-            name=""
-            if [ -n "$id" ]; then
-              feed=$(curl -sS "https://www.youtube.com/feeds/videos.xml?channel_id=$id")
-              name=$(echo "$feed" | grep -o '<title>[^<]*</title>' | head -1)
-              titles=$(echo "$feed" | grep -o '<media:title>[^<]*</media:title>' | head -4 | tr '\n' ' ')
-            fi
-            echo "$h | $id | $name | $titles" >> yt.txt
-          done
+          curl -sSL -A "Mozilla/5.0" "https://www.areadvd.de/?s=Neuheiten+der+Woche&feed=rss2" > area_search.xml || true
+          curl -sSL -A "Mozilla/5.0" "https://www.areadvd.de/feed/" > area_feed.xml || true
           git config user.name bot; git config user.email bot@example.com
-          git add yt.txt && git commit -qm yt && git push -q origin apitest
+          git add *.xml && git commit -qm area && git push -q origin apitest
