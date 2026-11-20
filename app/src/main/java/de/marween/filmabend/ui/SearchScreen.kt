@@ -187,25 +187,27 @@ fun ItemRow(vm: AppViewModel, item: CatalogItem, extra: String? = null, trailing
     }
     if (quickRate) {
         val mine = t?.rating(uid)
-        Row(
-            Modifier.fillMaxWidth().padding(start = 84.dp, end = 16.dp, bottom = 6.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text("Schon gesehen?", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            listOf(2 to "😖", 4 to "😕", 6 to "😐", 8 to "🙂", 10 to "😍").forEach { (r, e) ->
-                val sel = mine != null && kotlin.math.abs(mine - r) <= 1
-                Text(
-                    e, fontSize = 22.sp,
-                    modifier = Modifier
-                        .clip(CircleShape)
-                        .background(if (sel) Gold.copy(alpha = 0.5f) else androidx.compose.ui.graphics.Color.Transparent)
-                        .clickable {
-                            if (t != null) vm.setRating(t.info, if (sel) null else r)
-                            else vm.withResolved(item) { vm.setRating(it.info, r) }
-                        }
-                        .padding(4.dp)
-                )
+        Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 8.dp)) {
+            Text(
+                if (mine != null) "Deine Wertung: $mine/10 – nochmal tippen zum Ändern" else "Schon gesehen? Wie fandest du's?",
+                style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
+                listOf(2 to "😖", 4 to "😕", 6 to "😐", 8 to "🙂", 10 to "😍").forEach { (r, e) ->
+                    val sel = mine != null && kotlin.math.abs(mine - r) <= 1
+                    Box(
+                        Modifier
+                            .weight(1f)
+                            .clip(CircleShape)
+                            .background(if (sel) Gold.copy(alpha = 0.5f) else androidx.compose.ui.graphics.Color.Transparent)
+                            .clickable {
+                                if (t != null) vm.setRating(t.info, if (sel) null else r)
+                                else vm.withResolved(item) { vm.setRating(it.info, r) }
+                            }
+                            .padding(vertical = 4.dp),
+                        contentAlignment = Alignment.Center
+                    ) { Text(e, fontSize = 20.sp, maxLines = 1) }
+                }
             }
         }
     }
