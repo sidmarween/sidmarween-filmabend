@@ -1,0 +1,20 @@
+name: API-Test
+on:
+  push:
+    branches: [apitest]
+permissions:
+  contents: write
+jobs:
+  t:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          curl -sS -X POST https://mediathekviewweb.de/api/query -H "Content-Type: text/plain" \
+            --data '{"queries":[{"fields":["channel"],"query":"zdf"}],"sortBy":"timestamp","sortOrder":"desc","future":false,"duration_min":4800,"offset":0,"size":15}' > mvw.json || true
+          curl -sS -X POST https://mediathekviewweb.de/api/query -H "Content-Type: text/plain" \
+            --data '{"queries":[{"fields":["title"],"query":"Folge"}],"sortBy":"timestamp","sortOrder":"desc","future":false,"duration_min":1200,"duration_max":4200,"offset":0,"size":15}' > mvw2.json || true
+          curl -sS "https://itunes.apple.com/search?term=inception&country=de&media=movie&entity=movie&limit=1&lang=de_de" > it_de.json
+          curl -sS "https://itunes.apple.com/search?term=inception&country=de&media=movie&entity=movie&limit=1" > it_nolang.json
+          git config user.name bot; git config user.email bot@example.com
+          git add *.json && git commit -qm out && git push -q origin apitest
