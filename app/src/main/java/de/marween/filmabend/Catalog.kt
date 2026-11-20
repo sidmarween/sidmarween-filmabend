@@ -478,3 +478,95 @@ object Mediathek {
         }.sortedWith(compareByDescending<MediathekItem> { it.season == 1 }.thenByDescending { it.timestamp })
     }
 }
+
+// ======================= Deutsche Trailer (offizielle YouTube-Kanäle) =======================
+
+data class TrailerItem(
+    val videoId: String,
+    val title: String,
+    val show: String,
+    val provider: String,
+    val published: Long,
+    val thumb: String,
+    val description: String,
+) {
+    val url get() = "https://www.youtube.com/watch?v=$videoId"
+}
+
+/**
+ * Neueste deutsche Trailer von den offiziellen YouTube-Kanälen der Streamingdienste.
+ * Nutzt die öffentlichen Kanal-Feeds von YouTube – kein Schlüssel nötig.
+ */
+object Trailers {
+    /** Anzeigename -> YouTube-Kanal-ID */
+    val channels = linkedMapOf(
+        "Netflix" to "UCZqgRlLcvO3Fnx_npQJygcQ",
+        "Prime Video" to "UCNJwYVhTNX23AULBnfwnc9A",
+        "Disney+" to "UCOJJq47ie4y0HC5hH4JSQ6w",
+        "Paramount+" to "UCli6wrnHj-ZRTChDbTGzT-Q",
+        "Sky / WOW" to "UCo4jMxp607FOEolnBUsEDkA",
+        "RTL+" to "UC58J5mgyNYw1IS947I73qMw",
+        "ZDF" to "UC_EnhS-vNDc6Eo9nyQHC2YQ",
+        "ZDFneo" to "UCk9uI40bPBRkC7lo6y8wQ7Q",
+        "ARD" to "UCqmQ1b96-PNH4coqgHTuTlA",
+        "arte" to "UCLLibJTCy3sXjHLVaDimnpQ",
+        "Kino" to "UCOL10n-as9dXO2qtjjFUQbQ",           // KinoCheck: deutsche Kino- & Streaming-Trailer
+        "Warner Bros." to "UCR88edMaCp9veFK6PVXyYpQ",
+        "Universal" to "UCPqZp43m3Cg69JkvCvXh8Eg",
+    )
+
+    private val isTrailer = Regex("trailer|teaser", RegexOption.IGNORE_CASE)
+    private val cutTrailer = Regex(
+        "\\s*[–—\\-:]?\\s*\\(?\\s*(offizieller|offizielle|official|finaler|neuer|deutscher)?\\s*(teaser[- ]?)?(trailer|teaser).*$",
+        RegexOption.IGNORE_CASE
+    )
+
+    private fun unescape(s: String) = s.replace("&amp;", "&").replace("&quot;", "\"").replace("&#39;", "'")
+        .replace("&lt;", "<").replace("&gt;", ">")
+
+    /** Aus „Frisco King S1 (Offizieller Trailer) | Paramount+ Deutschland“ wird „Frisco King“. */
+    fun showName(title: String): String {
+        var t = title.substringBefore(" | ").trim()
+        t = t.replace(cutTrailer, "").trim()
+        t = t.replace(Regex("\\s+(S\\d+|Staffel \\d+|Season \\d+)\\s*$", RegexOption.IGNORE_CASE), "")
+        t = t.replace(Regex("\\s*[–—\\-:|]\\s*$"), "").trim()
+        return t.ifBlank { title }
+    }
+
+    private suspend fun feed(provider: String, id: String): List<TrailerItem> = withContext(Dispatchers.IO) {
+        val conn = URL("https://www.youtube.com/feeds/videos.xml?channel_id=$id").openConnection() as HttpURLConnection
+        conn.connectTimeout = 15000; conn.readTimeout = 15000
+        try {
+            if (conn.responseCode !in 200..299) return@withContext emptyList()
+            val xml = conn.inputStream.bufferedReader().use { it.readText() }
+            Regex("<entry>(.*?)</entry>", RegexOption.DOT_MATCHES_ALL).findAll(xml).mapNotNull { m ->
+                val e = m.groupValues[1]
+                fun tag(name: String) = Regex("<$name[^>]*>(.*?)</$name>", RegexOption.DOT_MATCHES_ALL).find(e)?.groupValues?.get(1)?.let(::unescape) ?: ""
+                val vid = tag("yt:videoId")
+                val title = tag("title")
+                if (vid.isBlank() || !isTrailer.containsMatchIn(title)) return@mapNotNull null
+                val published = runCatching { java.time.OffsetDateTime.parse(tag("published")).toEpochSecond() }.getOrDefault(0L)
+                val thumb = Regex("<media:thumbnail url=\"([^\"]+)\"").find(e)?.groupValues?.get(1) ?: "https://i.ytimg.com/vi/$vid/hqdefault.jpg"
+                TrailerItem(vid, title, showName(title), provider, published, thumb, tag("media:description").take(400))
+            }.toList()
+        } catch (e: Exception) {
+            emptyList()
+        } finally {
+            conn.disconnect()
+        }
+    }
+
+    /** Alle neuesten Trailer aller Kanäle, neueste zuerst. */
+    suspend fun latest(): List<TrailerItem> = coroutineScope {
+        val all = channels.map { (p, id) -> async { feed(p, id) } }.flatMap { it.await() }
+        if (all.isEmpty()) throw IOException("YouTube gerade nicht erreichbar.")
+        all.sortedByDescending { it.published }.distinctBy { it.videoId }
+    }
+
+    /** Passenden Trailer zu einem Titel finden. */
+    fun match(list: List<TrailerItem>, title: String): TrailerItem? {
+        val n = normName(title)
+        if (n.length < 3) return null
+        return list.firstOrNull { normName(it.show) == n } ?: list.firstOrNull { n.length >= 6 && normName(it.title).contains(n) }
+    }
+}

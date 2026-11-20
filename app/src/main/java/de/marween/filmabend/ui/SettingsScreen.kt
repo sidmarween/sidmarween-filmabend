@@ -48,6 +48,7 @@ private val changelog = listOf(
         "Englische Beschreibungen werden automatisch ins Deutsche übersetzt",
         "Neu: Seite „Neu & Trailer“ mit neuen Filmen (deutsche Trailer) und Serienstarts",
         "Trailer-Knopf auf jeder Film- und Serienseite",
+        "Trailer: neueste deutsche Trailer von Netflix, Prime Video, Disney+, Paramount+, Sky, RTL+ & Kino",
         "Mediatheken: neue Filme & Serien von ARD, ZDF, arte, 3sat, WDR, SWR, NDR, BR … direkt ansehen",
     ),
     "1.0" to listOf(

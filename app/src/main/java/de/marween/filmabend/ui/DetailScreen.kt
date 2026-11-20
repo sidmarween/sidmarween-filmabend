@@ -84,6 +84,7 @@ fun DetailScreen(vm: AppViewModel, type: String, id: Int, back: () -> Unit) {
     var showTrailer by remember { mutableStateOf(false) }
 
     LaunchedEffect(type, id) {
+        vm.loadTrailers()
         if (id > 0) {
             try { detail = Catalog.details(type, id) } catch (e: Exception) { loadError = e.localizedMessage }
         } else loadError = "Aus der Mediathek – keine weiteren Infos."
@@ -159,14 +160,14 @@ fun DetailScreen(vm: AppViewModel, type: String, id: Int, back: () -> Unit) {
             if (id > 0) androidx.compose.material3.FilledTonalButton(
                 onClick = {
                     if (trailerUrl != null) showTrailer = true
-                    else ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW,
-                        android.net.Uri.parse(Catalog.youtubeTrailer(info.title, info.year))))
+                    else openUrl(ctx, de.marween.filmabend.Trailers.match(vm.trailers.value.items, info.title)?.url
+                        ?: Catalog.youtubeTrailer(info.title, info.year))
                 },
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Icon(androidx.compose.material.icons.Icons.Filled.PlayArrow, null)
                 Spacer(Modifier.width(6.dp))
-                Text(if (trailerUrl != null) "Trailer ansehen" else "Deutschen Trailer auf YouTube suchen")
+                Text(if (trailerUrl != null) "Trailer ansehen" else "Deutschen Trailer ansehen (YouTube)")
             }
 
             // ---- Bewertung ----

@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CheckCircleOutline
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Card
@@ -60,6 +61,7 @@ import de.marween.filmabend.AppViewModel
 import de.marween.filmabend.Catalog
 import de.marween.filmabend.CatalogItem
 import de.marween.filmabend.MediathekItem
+import de.marween.filmabend.Trailers
 import de.marween.filmabend.normName
 
 @Composable
@@ -73,12 +75,19 @@ fun NewScreen(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
     val t = if (type == 0) "movie" else "tv"
 
     LaunchedEffect(type, mtType) {
-        if (type == 2) vm.loadMediathek(series = mtType == 1) else vm.loadNew(t)
+        vm.loadTrailers()
+        when (type) {
+            3 -> vm.loadMediathek(series = mtType == 1)
+            2 -> {}
+            else -> vm.loadNew(t)
+        }
     }
 
     Column(Modifier.fillMaxSize()) {
-        ChipRow(listOf("Neue Filme", "Neue Serien", "Mediatheken"), type, { type = it })
+        ChipRow(listOf("Neue Filme", "Neue Serien", "Trailer", "Mediatheken"), type, { type = it })
         if (type == 2) {
+            TrailerList(vm, openDetail)
+        } else if (type == 3) {
             ChipRow(listOf("Filme", "Serien"), mtType, { mtType = it }, Modifier.padding(top = 2.dp))
             MediathekList(vm, mtType == 1, onPlay = { title, url -> playing = title to url })
         } else {
@@ -107,8 +116,9 @@ fun NewScreen(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
                             onOpen = { openDetail(rec.item.type, rec.item.id) },
                             onTrailer = {
                                 val url = rec.item.trailer
+                                val yt = Trailers.match(vm.trailers.value.items, rec.item.title)
                                 if (url != null) playing = rec.item.title to url
-                                else ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(Catalog.youtubeTrailer(rec.item.title, rec.item.year))))
+                                else openUrl(ctx, yt?.url ?: Catalog.youtubeTrailer(rec.item.title, rec.item.year))
                             }
                         )
                     }
@@ -118,6 +128,87 @@ fun NewScreen(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
     }
 
     playing?.let { (title, url) -> TrailerDialog(title, url) { playing = null } }
+}
+
+fun openUrl(ctx: android.content.Context, url: String) {
+    runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+}
+
+@Composable
+private fun TrailerList(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
+    val state by vm.trailers.collectAsStateWithLifecycle()
+    val hh by vm.household.collectAsStateWithLifecycle()
+    val uid by vm.uid.collectAsStateWithLifecycle()
+    val partner = hh?.partnerOf(uid)
+    val ctx = LocalContext.current
+    var provider by rememberSaveable { mutableIntStateOf(0) }
+    val providers = listOf("Alle") + Trailers.channels.keys.filter { p -> state.items.any { it.provider == p } }
+    val shown = if (provider == 0 || provider >= providers.size) state.items else state.items.filter { it.provider == providers[provider] }
+
+    Text(
+        "Die neuesten deutschen Trailer von Netflix, Prime Video, Disney+, Paramount+, Sky, RTL+, ARD, ZDF und fürs Kino.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
+    )
+    when {
+        state.loading && state.items.isEmpty() -> Loading("Trailer werden geladen …")
+        state.error != null -> EmptyHint("Keine Trailer", state.error ?: "") {
+            TextButton(onClick = { vm.loadTrailers(force = true) }) { Text("Nochmal versuchen") }
+        }
+        else -> {
+            ChipRow(providers, provider, { provider = it })
+            LazyColumn(contentPadding = PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                items(shown, key = { it.videoId }) { tr ->
+                    Card(colors = CardDefaults.cardColors(containerColor = CardBg), modifier = Modifier.fillMaxWidth().clickable { openUrl(ctx, tr.url) }) {
+                        Column {
+                            Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).background(Color.Black), contentAlignment = Alignment.Center) {
+                                coil.compose.AsyncImage(
+                                    model = tr.thumb, contentDescription = null,
+                                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                                Icon(
+                                    Icons.Filled.PlayArrow, "Abspielen", tint = Color.White,
+                                    modifier = Modifier.background(Color.Black.copy(alpha = 0.55f), androidx.compose.foundation.shape.CircleShape)
+                                        .padding(10.dp)
+                                )
+                            }
+                            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Text(
+                                        tr.provider, style = MaterialTheme.typography.labelMedium, color = Color.Black,
+                                        modifier = Modifier.background(Gold, androidx.compose.foundation.shape.RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 1.dp)
+                                    )
+                                    if (tr.published > 0) Text(
+                                        "vom " + dayFmt.format(java.util.Date(tr.published * 1000)),
+                                        style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Text(tr.show, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                Text(tr.title, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    FilledTonalButton(onClick = { openUrl(ctx, tr.url) }, contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)) {
+                                        Icon(Icons.Filled.PlayArrow, null); Text("Trailer ansehen")
+                                    }
+                                    Spacer(Modifier.weight(1f))
+                                    IconButton(onClick = { vm.withTrailerTitle(tr) { vm.setWatchlist(it.info, true); vm.message.value = "„${it.title}“ gemerkt" } }) {
+                                        Icon(Icons.Filled.BookmarkBorder, "Merken", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                    IconButton(onClick = { vm.withTrailerTitle(tr) { openDetail(it.type, it.id) } }) {
+                                        Icon(Icons.Filled.Info, "Details", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                    if (partner != null) IconButton(onClick = { vm.withTrailerTitle(tr) { vm.suggest(it.info, "Schau mal den Trailer: ${tr.url}") } }) {
+                                        Icon(Icons.AutoMirrored.Filled.Send, "Vorschlagen", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 @Composable
@@ -242,7 +333,7 @@ private fun NewCard(vm: AppViewModel, item: CatalogItem, onOpen: () -> Unit, onT
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     FilledTonalButton(onClick = onTrailer, contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)) {
                         Icon(Icons.Filled.PlayArrow, null)
-                        Text(if (item.trailer != null) "Trailer" else "Trailer (YouTube)")
+                        Text("Trailer")
                     }
                     Spacer(Modifier.weight(1f))
                     IconButton(onClick = { if (t != null) vm.setWatchlist(t.info, !listed) else vm.setWatchlist(item.info, true) }) {

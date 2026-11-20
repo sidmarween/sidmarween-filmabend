@@ -21,6 +21,12 @@ enum class RecMode { BOTH, ME, PARTNER }
 
 data class Rec(val item: CatalogItem, val score: Double, val reason: String)
 
+data class TrState(
+    val loading: Boolean = false,
+    val items: List<TrailerItem> = emptyList(),
+    val error: String? = null,
+)
+
 data class MtState(
     val loading: Boolean = false,
     val items: List<MediathekItem> = emptyList(),
@@ -50,6 +56,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val newMovies = MutableStateFlow(RecState())
     val newShows = MutableStateFlow(RecState())
     val mtFilms = MutableStateFlow(MtState())
+    val trailers = MutableStateFlow(TrState())
     val mtSeries = MutableStateFlow(MtState())
 
     private var userReg: ListenerRegistration? = null
@@ -433,5 +440,26 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 MtState(error = e.localizedMessage ?: "Mediatheken konnten nicht geladen werden")
             }
         }
+    }
+
+    fun loadTrailers(force: Boolean = false) {
+        if (!force && (trailers.value.loading || trailers.value.items.isNotEmpty())) return
+        trailers.value = trailers.value.copy(loading = true, error = null)
+        viewModelScope.launch {
+            trailers.value = try {
+                TrState(items = Trailers.latest())
+            } catch (e: Exception) {
+                TrState(error = e.localizedMessage ?: "Trailer konnten nicht geladen werden")
+            }
+        }
+    }
+
+    /** Zu einem Trailer den passenden Film bzw. die Serie suchen und damit [action] ausführen. */
+    fun withTrailerTitle(tr: TrailerItem, action: (CatalogItem) -> Unit) = run {
+        val hits = Catalog.search(tr.show)
+        val n = normName(tr.show)
+        val best = hits.firstOrNull { normName(it.title) == n } ?: hits.firstOrNull()
+            ?: throw IllegalStateException("„${tr.show}“ wurde in der Filmdatenbank nicht gefunden.")
+        action(Catalog.resolve(best))
     }
 }
