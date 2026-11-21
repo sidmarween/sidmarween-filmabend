@@ -94,8 +94,8 @@ fun SearchScreen(vm: AppViewModel, back: () -> Unit, openPerson: (String, Int) -
             ChipRow(listOf("🎬 Filme & Serien", "🎭 Schauspieler"), mode, { mode = it }, Modifier.padding(top = 8.dp))
             if (mode == 1) {
                 when {
-                    loading && people.isEmpty() -> Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-                    error != null -> EmptyHint("Hoppla", error ?: "")
+                    loading && people.isEmpty() -> TiwiLoading(null)
+                    error != null -> EmptyHint("Hoppla", error ?: "", pose = TiwiPose.Surprised)
                 }
                 LazyColumn(contentPadding = PaddingValues(vertical = 8.dp)) {
                     if (query.trim().length >= 2) item {
@@ -109,9 +109,9 @@ fun SearchScreen(vm: AppViewModel, back: () -> Unit, openPerson: (String, Int) -
                 return@Column
             }
             when {
-                loading && results.isEmpty() -> Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-                error != null -> EmptyHint("Hoppla", error ?: "")
-                query.length >= 2 && results.isEmpty() && !loading -> EmptyHint("Nichts gefunden", "Probier einen anderen Suchbegriff.")
+                loading && results.isEmpty() -> TiwiLoading(null)
+                error != null -> EmptyHint("Hoppla", error ?: "", pose = TiwiPose.Surprised)
+                query.length >= 2 && results.isEmpty() && !loading -> EmptyHint("Nichts gefunden", "Probier einen anderen Suchbegriff.", pose = TiwiPose.Investigating)
             }
             LazyColumn(contentPadding = PaddingValues(vertical = 8.dp)) {
                 items(results, key = { it.key }) { item ->

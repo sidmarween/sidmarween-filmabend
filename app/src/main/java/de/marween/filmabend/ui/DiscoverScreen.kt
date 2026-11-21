@@ -77,11 +77,11 @@ fun DiscoverScreen(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
         }
         when {
             state.loading && state.items.isEmpty() ->
-                Box(Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-            state.error != null -> EmptyHint("Keine Vorschläge", state.error ?: "") {
+                TiwiLoading(null)
+            state.error != null -> EmptyHint("Keine Vorschläge", state.error ?: "", pose = TiwiPose.Surprised) {
                 TextButton(onClick = { if (genre == 0) vm.loadRecs(modes[mode]) else vm.loadGenre(genres[genre], force = true) }) { Text("Nochmal versuchen") }
             }
-            shown.isEmpty() && !state.loading -> EmptyHint("Nichts Passendes", "Probier einen anderen Filter.")
+            shown.isEmpty() && !state.loading -> EmptyHint("Nichts Passendes", "Probier einen anderen Filter.", pose = TiwiPose.Investigating)
             else -> LazyColumn(contentPadding = PaddingValues(bottom = 16.dp)) {
                 item {
                     Box(Modifier.fillMaxWidth().padding(end = 8.dp), contentAlignment = Alignment.CenterEnd) {

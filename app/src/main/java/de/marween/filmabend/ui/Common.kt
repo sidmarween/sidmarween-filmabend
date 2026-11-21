@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
@@ -28,6 +30,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -125,13 +128,19 @@ fun ChipRow(options: List<String>, selected: Int, onSelect: (Int) -> Unit, modif
 }
 
 @Composable
-fun EmptyHint(title: String, text: String, modifier: Modifier = Modifier, action: (@Composable () -> Unit)? = null) {
+fun EmptyHint(
+    title: String,
+    text: String,
+    modifier: Modifier = Modifier,
+    pose: TiwiPose = TiwiPose.Sleeping,
+    action: (@Composable () -> Unit)? = null,
+) {
     Column(
         modifier.fillMaxWidth().padding(32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        Text("🍿", fontSize = 44.sp)
+        Tiwi(pose, Modifier.height(96.dp))
         Text(title, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center)
         Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
         action?.invoke()
@@ -160,4 +169,49 @@ fun GermanText(
         }
     }
     Text(shown, modifier = modifier, style = style, maxLines = maxLines, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+}
+
+// ---------------- Tiwi, das Maskottchen ----------------
+
+enum class TiwiPose(val res: Int) {
+    Waving(de.marween.filmabend.R.drawable.tiwi_waving),
+    Investigating(de.marween.filmabend.R.drawable.tiwi_investigating),
+    Sleeping(de.marween.filmabend.R.drawable.tiwi_sleeping),
+    Surprised(de.marween.filmabend.R.drawable.tiwi_surprised),
+    Laughing(de.marween.filmabend.R.drawable.tiwi_laughing),
+}
+
+/** Tiwi in einer Pose – leicht abgedunkelt, damit er dezent bleibt. */
+@Composable
+fun Tiwi(pose: TiwiPose, modifier: Modifier = Modifier, alpha: Float = 0.9f) {
+    androidx.compose.foundation.Image(
+        painter = androidx.compose.ui.res.painterResource(pose.res),
+        contentDescription = null,
+        contentScale = ContentScale.Fit,
+        alpha = alpha,
+        modifier = modifier,
+    )
+}
+
+/** Ladeanzeige: Tiwi sucht mit der Lupe und wippt dabei sanft. */
+@Composable
+fun TiwiLoading(text: String?, modifier: Modifier = Modifier) {
+    val t = androidx.compose.animation.core.rememberInfiniteTransition(label = "tiwi")
+    val bob by t.animateFloat(
+        initialValue = 0f, targetValue = -6f,
+        animationSpec = androidx.compose.animation.core.infiniteRepeatable(
+            androidx.compose.animation.core.tween(700, easing = androidx.compose.animation.core.FastOutSlowInEasing),
+            androidx.compose.animation.core.RepeatMode.Reverse
+        ),
+        label = "bob"
+    )
+    Box(modifier.fillMaxWidth().padding(36.dp), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Tiwi(TiwiPose.Investigating, Modifier.height(76.dp).graphicsLayer { translationY = bob * density })
+            androidx.compose.material3.LinearProgressIndicator(
+                Modifier.padding(top = 12.dp).width(90.dp).clip(RoundedCornerShape(50))
+            )
+            if (text != null) Text(text, modifier = Modifier.padding(top = 10.dp), color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+        }
+    }
 }

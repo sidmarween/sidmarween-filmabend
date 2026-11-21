@@ -80,11 +80,12 @@ fun PersonScreen(vm: AppViewModel, name: String, id: Int, back: () -> Unit, open
                 else -> (movies + series).sortedByDescending { it.year }
             }
             when {
-                loading -> Box(Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-                error != null -> EmptyHint("Hoppla", error ?: "")
+                loading -> TiwiLoading(null)
+                error != null -> EmptyHint("Hoppla", error ?: "", pose = TiwiPose.Surprised)
                 list.isEmpty() -> EmptyHint(
                     "Nichts gefunden",
-                    if (filter == 2 && id == 0) "Für Serien bitte die Person aus der Trefferliste antippen." else "Zu „$name“ wurden hier keine Titel gefunden."
+                    if (filter == 2 && id == 0) "Für Serien bitte die Person aus der Trefferliste antippen." else "Zu „$name“ wurden hier keine Titel gefunden.",
+                    pose = TiwiPose.Investigating
                 )
                 else -> LazyColumn(contentPadding = PaddingValues(vertical = 8.dp)) {
                     item {

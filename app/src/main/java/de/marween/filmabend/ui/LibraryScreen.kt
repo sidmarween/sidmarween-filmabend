@@ -83,6 +83,7 @@ fun LibraryScreen(vm: AppViewModel, openDetail: (String, Int) -> Unit, openSearc
                 text = if (titles.isEmpty()) "Sucht einen Film oder eine Serie, die ihr schon gesehen habt, und hakt sie ab."
                 else if (who == 0) "Tippe unter „Neu“ oder bei einem Titel auf „Zusammen gucken“ – dann landet er hier, für euch beide."
                 else "Wechsle den Filter oben oder trag etwas Neues ein.",
+                pose = if (titles.isEmpty()) TiwiPose.Waving else TiwiPose.Sleeping,
             ) { Button(onClick = openSearch) { Text("Titel suchen") } }
         } else {
             Text(

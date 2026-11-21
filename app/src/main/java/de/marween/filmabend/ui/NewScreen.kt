@@ -116,7 +116,7 @@ fun NewScreen(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
                 )
                 when {
                     tvState.loading && tvState.items.isEmpty() -> Loading("Alle Sender werden durchsucht …")
-                    tvState.error != null -> EmptyHint("Kein Tipp heute", tvState.error ?: "") {
+                    tvState.error != null -> EmptyHint("Kein Tipp heute", tvState.error ?: "", pose = TiwiPose.Surprised) {
                         TextButton(onClick = { vm.loadTv(force = true) }) { Text("Nochmal versuchen") }
                     }
                     else -> DailyPickCard(vm, openDetail)
@@ -142,7 +142,7 @@ fun NewScreen(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
             )
             when {
                 state.loading && state.items.isEmpty() -> Loading(if (type == 1) "Programm wird durchsucht …" else null)
-                state.error != null -> EmptyHint("Keine Neuheiten", state.error ?: "") {
+                state.error != null -> EmptyHint("Keine Neuheiten", state.error ?: "", pose = TiwiPose.Surprised) {
                     TextButton(onClick = { vm.loadNew(t, force = true) }) { Text("Nochmal versuchen") }
                 }
                 else -> LazyColumn(contentPadding = PaddingValues(start = 12.dp, end = 12.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -195,7 +195,7 @@ private fun TrailerList(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
     )
     when {
         state.loading && state.items.isEmpty() -> Loading("Trailer werden geladen …")
-        state.error != null -> EmptyHint("Keine Trailer", state.error ?: "") {
+        state.error != null -> EmptyHint("Keine Trailer", state.error ?: "", pose = TiwiPose.Surprised) {
             TextButton(onClick = { vm.loadTrailers(force = true) }) { Text("Nochmal versuchen") }
         }
         else -> {
@@ -275,7 +275,7 @@ private fun TvList(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
     )
     when {
         state.loading && state.items.isEmpty() -> Loading("Alle Sender werden durchsucht …")
-        state.error != null -> EmptyHint("Kein Programm", state.error ?: "") {
+        state.error != null -> EmptyHint("Kein Programm", state.error ?: "", pose = TiwiPose.Surprised) {
             TextButton(onClick = { vm.loadTv(force = true) }) { Text("Nochmal versuchen") }
         }
         else -> {
@@ -318,7 +318,7 @@ private fun DiscList(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
     )
     when {
         state.loading && state.items.isEmpty() -> Loading("Neuheiten werden geladen …")
-        state.error != null -> EmptyHint("Keine Neuheiten", state.error ?: "") {
+        state.error != null -> EmptyHint("Keine Neuheiten", state.error ?: "", pose = TiwiPose.Surprised) {
             TextButton(onClick = { vm.loadDiscs(force = true) }) { Text("Nochmal versuchen") }
         }
         else -> {
@@ -392,14 +392,7 @@ private fun DiscCard(vm: AppViewModel, d: de.marween.filmabend.DiscRelease, open
 }
 
 @Composable
-private fun Loading(text: String?) {
-    Box(Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            CircularProgressIndicator()
-            if (text != null) Text(text, modifier = Modifier.padding(top = 10.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-    }
-}
+private fun Loading(text: String?) = TiwiLoading(text)
 
 @Composable
 private fun MediathekList(vm: AppViewModel, series: Boolean, onPlay: (String, String) -> Unit) {
@@ -420,7 +413,7 @@ private fun MediathekList(vm: AppViewModel, series: Boolean, onPlay: (String, St
     )
     when {
         state.loading && state.items.isEmpty() -> Loading("Mediatheken werden durchsucht …")
-        state.error != null -> EmptyHint("Keine Einträge", state.error ?: "") {
+        state.error != null -> EmptyHint("Keine Einträge", state.error ?: "", pose = TiwiPose.Surprised) {
             TextButton(onClick = { vm.loadMediathek(series, force = true) }) { Text("Nochmal versuchen") }
         }
         else -> {

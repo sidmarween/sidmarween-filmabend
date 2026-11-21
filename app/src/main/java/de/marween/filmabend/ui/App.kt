@@ -82,7 +82,7 @@ fun FilmabendApp(vm: AppViewModel, tab: Int, setTab: (Int) -> Unit) {
     val profile by vm.profile.collectAsStateWithLifecycle()
     when {
         uid == null -> AuthScreen(vm)
-        !loaded -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+        !loaded -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { TiwiLoading(null) }
         profile?.hid == null -> HouseholdSetupScreen(vm)
         else -> MainShell(vm, tab, setTab)
     }
@@ -194,7 +194,7 @@ private fun AuthScreen(vm: AppViewModel) {
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         Spacer(Modifier.height(40.dp))
-        Text("🎬", fontSize = 64.sp)
+        Tiwi(TiwiPose.Waving, Modifier.height(120.dp))
         Text("Filmabend", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold, color = Gold)
         Text(
             "Eure gemeinsame Film- & Serienliste.\nAbhaken, bewerten, Vorschläge schicken.",
@@ -278,7 +278,7 @@ private fun HouseholdSetupScreen(vm: AppViewModel) {
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         Spacer(Modifier.height(40.dp))
-        Text("💑", fontSize = 56.sp)
+        Tiwi(TiwiPose.Laughing, Modifier.height(104.dp))
         Text("Hallo ${profile?.name ?: ""}!", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         Text(
             "Verbindet eure beiden Handys: Einer von euch legt eure gemeinsame Liste an und bekommt einen Code. " +
