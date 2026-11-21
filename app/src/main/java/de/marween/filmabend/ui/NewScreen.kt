@@ -109,7 +109,7 @@ fun NewScreen(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
             val tvState by vm.tv.collectAsStateWithLifecycle()
             androidx.compose.foundation.layout.Column(Modifier.fillMaxSize().verticalScroll(androidx.compose.foundation.rememberScrollState())) {
                 Text(
-                    "Jeden Tag eine Sendung aus allen öffentlich-rechtlichen und privaten Sendern – ausgesucht nach dem, was ihr gut bewertet habt.",
+                    "Jeden Tag eine Sendung aus allen öffentlich-rechtlichen und privaten Sendern – ausgesucht nach dem, was ihr gut bewertet habt. Passt sie nicht? Tippt auf „Anderer Tipp“ oder wählt unten eine Alternative.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)

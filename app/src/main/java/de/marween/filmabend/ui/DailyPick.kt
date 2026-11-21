@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.foundation.border
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilledTonalButton
@@ -57,10 +59,14 @@ fun DailyPickCard(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
         val fresh = tv.items.filterNot { seen(it.show.item.key, it.show.item.title) }
         val todayEnd = day.plusDays(1).atStartOfDay(java.time.ZoneId.of("Europe/Berlin")).toEpochSecond()
         val onToday = fresh.filter { it.show.nextAir in 1 until todayEnd }.take(3)
-        (onToday + fresh.take(12)).distinctBy { it.show.item.key }
+        (onToday + fresh.take(15)).distinctBy { it.show.item.key }
     }
     if (candidates.isEmpty()) return
-    val pick = candidates[(day.dayOfYear * 7 + day.year) % candidates.size]
+    // Startet jeden Tag mit „dem“ Tipp des Tages; per Knopf oder Antippen unten gibt's Alternativen
+    val base = (day.dayOfYear * 7 + day.year) % candidates.size
+    var offset by androidx.compose.runtime.saveable.rememberSaveable(day.toString()) { androidx.compose.runtime.mutableIntStateOf(0) }
+    val idx = (base + offset).mod(candidates.size)
+    val pick = candidates[idx]
     val s = pick.show
     val item = s.item
 
@@ -90,7 +96,19 @@ fun DailyPickCard(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
                 .padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            Text("⭐ SENDUNG DES TAGES", style = MaterialTheme.typography.labelMedium, color = Gold, fontWeight = FontWeight.Bold)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    if (offset == 0) "⭐ SENDUNG DES TAGES" else "⭐ ALTERNATIVE ${offset.mod(candidates.size)} VON ${candidates.size - 1}",
+                    style = MaterialTheme.typography.labelMedium, color = Gold, fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f)
+                )
+                if (candidates.size > 1) {
+                    TextButton(
+                        onClick = { offset = (offset + 1).mod(candidates.size) },
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                    ) { Icon(Icons.Filled.Refresh, null); Text(" Anderer Tipp") }
+                }
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Poster(item.poster, item.type, Modifier.width(96.dp), corner = 8.dp)
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
@@ -119,6 +137,43 @@ fun DailyPickCard(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
                 TextButton(onClick = { openDetail(item.type, item.id) }) { Text("Details") }
             }
             PartnerButtons(vm, item.title, item.key, { cb -> cb(item.info) })
+        }
+    }
+
+    // Weitere Tipps zum Durchblättern – antippen macht sie zur Hauptempfehlung
+    if (candidates.size > 1) {
+        Text(
+            "Weitere Tipps für heute",
+            style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(start = 16.dp, top = 10.dp, bottom = 6.dp)
+        )
+        androidx.compose.foundation.lazy.LazyRow(
+            contentPadding = PaddingValues(horizontal = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            items(candidates.size) { i ->
+                val c = candidates[i].show
+                val selected = i == idx
+                Column(
+                    Modifier.width(92.dp).clickable { offset = (i - base).mod(candidates.size) },
+                    verticalArrangement = Arrangement.spacedBy(3.dp)
+                ) {
+                    Poster(
+                        c.item.poster, c.item.type,
+                        Modifier.fillMaxWidth().then(
+                            if (selected) Modifier.border(2.dp, Gold, RoundedCornerShape(8.dp)) else Modifier
+                        ),
+                        corner = 8.dp
+                    )
+                    Text(
+                        c.item.title, style = MaterialTheme.typography.labelSmall, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                        color = if (selected) Gold else MaterialTheme.colorScheme.onSurface
+                    )
+                    val t = if (c.nextAir > 0) java.text.SimpleDateFormat("EE HH:mm", java.util.Locale.GERMANY).format(java.util.Date(c.nextAir * 1000))
+                    else "Abrufbar"
+                    Text(t, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                }
+            }
         }
     }
 }
