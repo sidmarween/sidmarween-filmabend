@@ -6,6 +6,7 @@ import android.widget.MediaController
 import android.widget.VideoView
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -67,7 +68,8 @@ import de.marween.filmabend.normName
 @Composable
 fun NewScreen(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
     val seen = rememberSeen(vm)
-    var type by rememberSaveable { mutableIntStateOf(0) }
+    var chip by rememberSaveable { mutableIntStateOf(0) }
+    val type = if (chip == 0) 6 else chip - 1
     var mtType by rememberSaveable { mutableIntStateOf(0) }
     val movies by vm.newMovies.collectAsStateWithLifecycle()
     val shows by vm.newShows.collectAsStateWithLifecycle()
@@ -80,14 +82,14 @@ fun NewScreen(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
         when (type) {
             3 -> vm.loadMediathek(series = mtType == 1)
             4 -> vm.loadDiscs()
-            5 -> vm.loadTv()
+            5, 6 -> vm.loadTv()
             2 -> {}
             0, 1 -> vm.loadNew(t)
         }
     }
 
     Column(Modifier.fillMaxSize()) {
-        ChipRow(listOf("Neue Filme", "Neue Serien", "Trailer", "Mediatheken", "DVD & Blu-ray", "📺 TV-Sendungen"), type, { type = it })
+        ChipRow(listOf("⭐ Tipp des Tages", "Neue Filme", "Neue Serien", "Trailer", "Mediatheken", "DVD & Blu-ray", "📺 TV-Sendungen"), chip, { chip = it })
         val anyLoading = listOf(
             vm.trailers.collectAsStateWithLifecycle().value.loading,
             movies.loading, shows.loading,
@@ -103,7 +105,24 @@ fun NewScreen(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
             Icon(Icons.Filled.Refresh, null)
             Text(if (anyLoading) "  Wird aktualisiert …" else "  Alles aktualisieren (neueste Trailer & Neuheiten)")
         }
-        if (type == 5) {
+        if (type == 6) {
+            val tvState by vm.tv.collectAsStateWithLifecycle()
+            androidx.compose.foundation.layout.Column(Modifier.fillMaxSize().verticalScroll(androidx.compose.foundation.rememberScrollState())) {
+                Text(
+                    "Jeden Tag eine Sendung aus allen öffentlich-rechtlichen und privaten Sendern – ausgesucht nach dem, was ihr gut bewertet habt.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
+                )
+                when {
+                    tvState.loading && tvState.items.isEmpty() -> Loading("Alle Sender werden durchsucht …")
+                    tvState.error != null -> EmptyHint("Kein Tipp heute", tvState.error ?: "") {
+                        TextButton(onClick = { vm.loadTv(force = true) }) { Text("Nochmal versuchen") }
+                    }
+                    else -> DailyPickCard(vm, openDetail)
+                }
+            }
+        } else if (type == 5) {
             TvList(vm, openDetail)
         } else if (type == 4) {
             DiscList(vm, openDetail)

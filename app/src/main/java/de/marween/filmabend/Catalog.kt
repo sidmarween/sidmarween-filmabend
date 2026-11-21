@@ -1178,3 +1178,71 @@ object PosterFinder {
             ?: fromTvmaze(clean)
     }
 }
+
+// ======================= Fun Facts (Wikipedia) =======================
+
+object FunFacts {
+    private fun JSONObject.s(k: String) = if (isNull(k)) "" else optString(k, "")
+
+    private suspend fun get(url: String): String = withContext(Dispatchers.IO) {
+        val conn = URL(url).openConnection() as HttpURLConnection
+        conn.connectTimeout = 12000; conn.readTimeout = 15000
+        conn.setRequestProperty("User-Agent", "Filmabend-App (Android)")
+        try {
+            if (conn.responseCode !in 200..299) throw IOException("${conn.responseCode}")
+            conn.inputStream.bufferedReader().use { it.readText() }
+        } finally {
+            conn.disconnect()
+        }
+    }
+
+    /** Einleitung des passenden Wikipedia-Artikels. */
+    private suspend fun intro(lang: String, title: String, type: String): String? {
+        val hint = when {
+            lang == "de" && type == "tv" -> " Fernsehserie OR Fernsehsendung"
+            lang == "de" -> " Film"
+            type == "tv" -> " TV series"
+            else -> " film"
+        }
+        val url = "https://$lang.wikipedia.org/w/api.php?action=query&format=json&generator=search&gsrlimit=4" +
+            "&prop=extracts&exintro=1&explaintext=1&gsrsearch=" + URLEncoder.encode("\"$title\"$hint", "UTF-8")
+        val pages = JSONObject(get(url)).optJSONObject("query")?.optJSONObject("pages") ?: return null
+        val n = normName(title)
+        return pages.keys().asSequence().mapNotNull { pages.optJSONObject(it) }
+            .sortedBy { it.optInt("index", 99) }
+            .firstOrNull { p ->
+                val pt = normName(p.s("title").substringBefore(" ("))
+                pt == n || (n.length >= 5 && (pt.startsWith(n) || n.startsWith(pt)))
+            }?.s("extract")?.takeIf { it.length > 80 }
+    }
+
+    private val good = listOf(
+        "erste", "ersten", "rekord", "preis", "ausgezeichnet", "grimme", "emmy", "golden globe", "oscar", "basiert",
+        "ursprünglich", "gedreht", "drehort", "zuschauer", "millionen", "erfolgreich", "läuft seit", "eingestellt",
+        "kult", "vorlage", "roman", "wahre", "spin-off", "ableger", "nominiert", "längste", "staffeln", "folgen",
+        "first", "record", "award", "won", "based on", "originally", "filmed", "viewers", "million", "longest", "nominated",
+    )
+
+    private fun pick(text: String, avoid: String): String? {
+        val sentences = text.replace("\n", " ").split(Regex("(?<=[.!?])\\s+(?=[A-ZÄÖÜ0-9„\"])"))
+            .map { it.trim() }.filter { it.length in 40..280 }
+        if (sentences.isEmpty()) return null
+        val av = normName(avoid).take(60)
+        val scored = sentences.drop(1).map { s ->
+            val l = s.lowercase()
+            var sc = good.count { it in l } * 3
+            if (Regex("\\d").containsMatchIn(s)) sc += 2
+            if (av.isNotBlank() && normName(s).contains(av)) sc -= 10
+            s to sc
+        }.sortedByDescending { it.second }
+        return scored.firstOrNull { it.second > 0 }?.first ?: sentences.getOrNull(1) ?: sentences.first()
+    }
+
+    /** Ein interessanter Satz zum Titel – erst deutsche, dann englische Wikipedia (übersetzt). */
+    suspend fun find(title: String, type: String, overview: String = ""): String? {
+        runCatching { intro("de", title, type) }.getOrNull()?.let { t -> pick(t, overview)?.let { return it } }
+        val en = runCatching { intro("en", title, type) }.getOrNull() ?: return null
+        val s = pick(en, overview) ?: return null
+        return runCatching { German.translate(s) }.getOrDefault(s)
+    }
+}
