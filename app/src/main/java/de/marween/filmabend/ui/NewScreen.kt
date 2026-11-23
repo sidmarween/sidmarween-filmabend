@@ -409,13 +409,26 @@ private fun DiscCard(vm: AppViewModel, d: de.marween.filmabend.DiscRelease, open
                     Text(sub, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 if (looked && hit == null) Text("Keine weiteren Infos gefunden", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                TextButton(
-                    onClick = {
-                        val yt = Trailers.match(vm.trailers.value.items, d.title)
-                        openUrl(ctx, hit?.ytUrl ?: yt?.url ?: Catalog.youtubeTrailer(d.title))
-                    },
-                    contentPadding = PaddingValues(horizontal = 0.dp, vertical = 0.dp)
-                ) { Icon(Icons.Filled.PlayArrow, null); Text("Trailer") }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(
+                        onClick = {
+                            val yt = Trailers.match(vm.trailers.value.items, d.title)
+                            openUrl(ctx, hit?.ytUrl ?: yt?.url ?: Catalog.youtubeTrailer(d.title))
+                        },
+                        contentPadding = PaddingValues(horizontal = 0.dp, vertical = 0.dp)
+                    ) { Icon(Icons.Filled.PlayArrow, null); Text("Trailer") }
+                    Spacer(Modifier.weight(1f))
+                    // Unter dem DVD-Namen ablehnen (Genres vom gefundenen Titel fürs Geschmacksprofil)
+                    IconButton(onClick = {
+                        vm.setRejected(
+                            de.marween.filmabend.TitleInfo(
+                                -((("mt:" + normName(d.title)).hashCode() and 0x3fffffff) + 1),
+                                hit?.type ?: "movie", d.title, hit?.year ?: "", d.cover ?: hit?.poster, hit?.overview ?: "",
+                                hit?.genres ?: emptyList()
+                            ), true
+                        )
+                    }) { Icon(Icons.Filled.ThumbDownOffAlt, "Nicht mein Fall", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+                }
                 PartnerButtons(vm, d.title, hit?.key, { cb -> vm.withTitle(d.title) { cb(it.info) } })
             }
         }
@@ -497,6 +510,9 @@ private fun MediathekCard(vm: AppViewModel, m: MediathekItem, onPlay: (String, S
                     TextButton(onClick = { onPlay("Trailer: ${m.name}", m.trailer) }) { Text("Trailer") }
                 }
                 Spacer(Modifier.weight(1f))
+                IconButton(onClick = { vm.setRejected(t?.info ?: m.info, true) }) {
+                    Icon(Icons.Filled.ThumbDownOffAlt, "Nicht mein Fall", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
                 IconButton(onClick = { if (t != null) vm.setWatchlist(t.info, !listed) else vm.setWatchlist(m.info, true) }) {
                     Icon(if (listed) Icons.Filled.Bookmark else Icons.Filled.BookmarkBorder, "Merken", tint = if (listed) Rose else MaterialTheme.colorScheme.onSurfaceVariant)
                 }
