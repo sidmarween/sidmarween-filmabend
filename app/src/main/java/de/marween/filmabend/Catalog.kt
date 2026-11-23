@@ -873,7 +873,7 @@ object GermanTv {
         val shows = LinkedHashMap<String, TvShow>()
         for (chunk in channels.chunked(4)) {
             val res = chunk.map { (code, name, pub) ->
-                async { Triple(name, pub, runCatching { JW.popular("tv", first = 80, packages = listOf(code)) }.getOrDefault(emptyList())) }
+                async { Triple(name, pub, runCatching { JW.popular("tv", first = 150, packages = listOf(code)) }.getOrDefault(emptyList())) }
             }.map { it.await() }
             for ((name, pub, list) in res) {
                 list.forEachIndexed { idx, item ->

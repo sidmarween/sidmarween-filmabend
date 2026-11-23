@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CheckCircleOutline
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
@@ -88,7 +89,18 @@ fun NewScreen(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
         }
     }
 
+    var query by rememberSaveable { mutableStateOf("") }
     Column(Modifier.fillMaxSize()) {
+        androidx.compose.material3.OutlinedTextField(
+            value = query, onValueChange = { query = it },
+            placeholder = { Text("In „Neu“ suchen – Titel, Sender, Genre …") },
+            leadingIcon = { Icon(Icons.Filled.Search, null) },
+            trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Icon(Icons.Filled.Close, "Leeren") } },
+            singleLine = true,
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(50),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp)
+        )
+        androidx.compose.runtime.CompositionLocalProvider(LocalNewQuery provides query.trim()) {
         ChipRow(listOf("⭐ Tipp des Tages", "Neue Filme", "Neue Serien", "Trailer", "Mediatheken", "DVD & Blu-ray", "📺 TV-Sendungen"), chip, { chip = it })
         val anyLoading = listOf(
             vm.trailers.collectAsStateWithLifecycle().value.loading,
@@ -105,7 +117,10 @@ fun NewScreen(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
             Icon(Icons.Filled.Refresh, null)
             Text(if (anyLoading) "  Wird aktualisiert …" else "  Alles aktualisieren (neueste Trailer & Neuheiten)")
         }
-        if (type == 6) {
+        if (type == 6 && query.isNotBlank()) {
+            // Beim Suchen im Tipp des Tages: alle Sendungen durchsuchen
+            TvList(vm, openDetail)
+        } else if (type == 6) {
             val tvState by vm.tv.collectAsStateWithLifecycle()
             androidx.compose.foundation.layout.Column(Modifier.fillMaxSize().verticalScroll(androidx.compose.foundation.rememberScrollState())) {
                 Text(
@@ -132,6 +147,7 @@ fun NewScreen(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
             ChipRow(listOf("Filme", "Serien"), mtType, { mtType = it }, Modifier.padding(top = 2.dp))
             MediathekList(vm, mtType == 1, onPlay = { title, url -> playing = title to url })
         } else {
+            val q = LocalNewQuery.current
             val state = if (type == 0) movies else shows
             Text(
                 if (type == 0) "Was gerade neu in den deutschen iTunes-Charts ist – mit deutschem Trailer."
@@ -151,7 +167,7 @@ fun NewScreen(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
                             IconButton(onClick = { vm.loadNew(t, force = true) }) { Icon(Icons.Filled.Refresh, "Neu laden") }
                         }
                     }
-                    items(state.items.filterNot { seen(it.item.key, it.item.title) }, key = { it.item.key }) { rec ->
+                    items(state.items.filterNot { seen(it.item.key, it.item.title) }.filter { hit(q, it.item.title, it.item.genres.joinToString(), it.item.extra, it.item.overview) }, key = { it.item.key }) { rec ->
                         NewCard(
                             vm, rec.item,
                             onOpen = { openDetail(rec.item.type, rec.item.id) },
@@ -166,10 +182,18 @@ fun NewScreen(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
                 }
             }
         }
+        }
     }
 
     playing?.let { (title, url) -> TrailerDialog(title, url) { playing = null } }
 }
+
+/** Suchbegriff aus dem Suchfeld unter „Neu“ – gilt für den jeweils offenen Bereich. */
+val LocalNewQuery = androidx.compose.runtime.compositionLocalOf { "" }
+
+/** Passt einer der Texte zum Suchbegriff? (Groß-/Kleinschreibung egal) */
+private fun hit(q: String, vararg texts: String?): Boolean =
+    q.isBlank() || q.split(" ").filter { it.isNotBlank() }.all { w -> texts.any { it?.contains(w, ignoreCase = true) == true } }
 
 fun openUrl(ctx: android.content.Context, url: String) {
     runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
@@ -177,6 +201,7 @@ fun openUrl(ctx: android.content.Context, url: String) {
 
 @Composable
 private fun TrailerList(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
+    val q = LocalNewQuery.current
     val seen = rememberSeen(vm)
     val state by vm.trailers.collectAsStateWithLifecycle()
     val hh by vm.household.collectAsStateWithLifecycle()
@@ -201,7 +226,7 @@ private fun TrailerList(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
         else -> {
             ChipRow(providers, provider, { provider = it })
             LazyColumn(contentPadding = PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                items(shown.filterNot { seen(null, it.show) }, key = { it.videoId }) { tr ->
+                items(shown.filterNot { seen(null, it.show) }.filter { hit(q, it.show, it.title, it.provider) }, key = { it.videoId }) { tr ->
                     Card(colors = CardDefaults.cardColors(containerColor = CardBg), modifier = Modifier.fillMaxWidth().clickable { openUrl(ctx, tr.url) }) {
                         Column {
                             Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).background(Color.Black), contentAlignment = Alignment.Center) {
@@ -253,6 +278,7 @@ private fun TrailerList(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
 
 @Composable
 private fun TvList(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
+    val q = LocalNewQuery.current
     val seen = rememberSeen(vm)
     val state by vm.tv.collectAsStateWithLifecycle()
     var which by rememberSaveable { mutableIntStateOf(0) }
@@ -282,7 +308,7 @@ private fun TvList(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
             ChipRow(listOf("Alle Sender", "Öffentlich-rechtlich", "Privat"), which, { which = it; kind = 0 })
             if (kinds.size > 2) ChipRow(kinds, kind, { kind = it }, Modifier.padding(top = 2.dp))
             LazyColumn(contentPadding = PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                items(shown.filterNot { seen(it.show.item.key, it.show.item.title) }.take(500), key = { it.show.item.key }) { r ->
+                items(shown.filterNot { seen(it.show.item.key, it.show.item.title) }.filter { hit(q, it.show.item.title, it.show.network, it.show.kind, it.show.item.genres.joinToString(), it.show.item.overview) }.take(500), key = { it.show.item.key }) { r ->
                     val s = r.show
                     val whenTxt = if (s.nextAir > 0) "📺 ${fmt.format(java.util.Date(s.nextAir * 1000))} · " else "▶ Abrufbar bei "
                     val item = s.item.copy(
@@ -303,6 +329,7 @@ private fun TvList(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
 
 @Composable
 private fun DiscList(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
+    val q = LocalNewQuery.current
     val seen = rememberSeen(vm)
     val state by vm.discs.collectAsStateWithLifecycle()
     var format by rememberSaveable { mutableIntStateOf(0) }
@@ -324,7 +351,7 @@ private fun DiscList(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
         else -> {
             ChipRow(formats, format, { format = it })
             LazyColumn(contentPadding = PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                val groups = shown.filterNot { seen(null, it.title) }.groupBy { it.weekStart }
+                val groups = shown.filterNot { seen(null, it.title) }.filter { hit(q, it.title, it.formats.joinToString()) }.groupBy { it.weekStart }
                 groups.forEach { (week, list) ->
                     item(key = "w$week") {
                         Text(
@@ -396,6 +423,7 @@ private fun Loading(text: String?) = TiwiLoading(text)
 
 @Composable
 private fun MediathekList(vm: AppViewModel, series: Boolean, onPlay: (String, String) -> Unit) {
+    val q = LocalNewQuery.current
     val seen = rememberSeen(vm)
     val films by vm.mtFilms.collectAsStateWithLifecycle()
     val shows by vm.mtSeries.collectAsStateWithLifecycle()
@@ -419,7 +447,7 @@ private fun MediathekList(vm: AppViewModel, series: Boolean, onPlay: (String, St
         else -> {
             if (channels.size > 2) ChipRow(channels, channel, { channel = it })
             LazyColumn(contentPadding = PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                items(shown.filterNot { seen(it.key, it.name) }, key = { it.key + it.video }) { m -> MediathekCard(vm, m, onPlay) }
+                items(shown.filterNot { seen(it.key, it.name) }.filter { hit(q, it.name, it.title, it.topic, it.channel, it.description) }, key = { it.key + it.video }) { m -> MediathekCard(vm, m, onPlay) }
             }
         }
     }

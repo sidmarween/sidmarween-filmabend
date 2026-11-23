@@ -588,7 +588,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         tv.value = tv.value.copy(loading = true, error = null)
         viewModelScope.launch {
             tv.value = try {
-                val shows = GermanTv.upcoming(7)
+                val shows = GermanTv.upcoming(10)
                 val (taste, example) = tasteOfBoth()
                 val u = uid.value
                 val p = household.value?.partnerOf(u)
@@ -606,13 +606,37 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                         topGenre != null -> "Ihr mögt $topGenre" + (example[topGenre]?.let { " – wie „$it“" } ?: "")
                         else -> "Beliebt"
                     }
+                    // Etwas tägliche Würze, damit nicht jeden Tag dieselben oben stehen
+                    score += dayJitter(s.item.key) * 2.5
                     TvRec(s, score, reason)
                 }.sortedByDescending { it.score }
-                TvState(items = ranked)
+                TvState(items = diversify(ranked) { it.show.kind })
             } catch (e: Exception) {
                 TvState(error = e.localizedMessage ?: "Fernsehprogramm konnte nicht geladen werden")
             }
         }
+    }
+
+    /** Zufallswert 0..1, der pro Titel und Tag gleich bleibt (ändert sich jeden Tag). */
+    private fun dayJitter(key: String): Double {
+        val seed = (key + java.time.LocalDate.now()).hashCode().toLong()
+        return java.util.Random(seed).nextDouble()
+    }
+
+    /**
+     * Mehr Abwechslung: nie mehr als zwei Sendungen derselben Art (Krimi, Doku, Show …)
+     * direkt hintereinander – die Reihenfolge nach Geschmack bleibt sonst erhalten.
+     */
+    private fun <T> diversify(list: List<T>, kindOf: (T) -> String): List<T> {
+        val rest = list.toMutableList()
+        val out = ArrayList<T>(list.size)
+        while (rest.isNotEmpty()) {
+            val last = out.takeLast(2).map(kindOf)
+            val blocked = if (last.size == 2 && last[0] == last[1]) last[0] else null
+            val i = rest.indexOfFirst { kindOf(it) != blocked }.takeIf { it >= 0 } ?: 0
+            out += rest.removeAt(i)
+        }
+        return out
     }
 
     /** Beliebte Filme & Serien eines Genres – zum Durchstöbern und Bewerten. */

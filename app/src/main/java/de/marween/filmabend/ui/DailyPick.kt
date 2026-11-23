@@ -59,7 +59,9 @@ fun DailyPickCard(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
         val fresh = tv.items.filterNot { seen(it.show.item.key, it.show.item.title) }
         val todayEnd = day.plusDays(1).atStartOfDay(java.time.ZoneId.of("Europe/Berlin")).toEpochSecond()
         val onToday = fresh.filter { it.show.nextAir in 1 until todayEnd }.take(3)
-        (onToday + fresh.take(15)).distinctBy { it.show.item.key }
+        // Bevorzugt je Art (Krimi, Doku, Show …) eine Sendung, damit die Tipps abwechslungsreich sind
+        val varied = fresh.take(80).distinctBy { it.show.kind }.take(12)
+        (onToday + varied + fresh.take(25)).distinctBy { it.show.item.key }.take(25)
     }
     if (candidates.isEmpty()) return
     // Startet jeden Tag mit „dem“ Tipp des Tages; per Knopf oder Antippen unten gibt's Alternativen
