@@ -176,12 +176,12 @@ fun TourOverlay(setTab: (Int) -> Unit, onDone: () -> Unit) {
                         Modifier
                             .padding(top = 6.dp)
                             .fillMaxWidth()
-                            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(18.dp))
+                            .background(Color(0xFF1E1830), RoundedCornerShape(18.dp))
                             .padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         Text(s.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Gold)
-                        Text(s.text, style = MaterialTheme.typography.bodyMedium)
+                        Text(s.text, style = MaterialTheme.typography.bodyLarge, color = Color.White)
                     }
                 }
             }
@@ -197,9 +197,9 @@ fun TourOverlay(setTab: (Int) -> Unit, onDone: () -> Unit) {
                 Modifier.fillMaxWidth().padding(top = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                if (index < steps.lastIndex) TextButton(onClick = onDone) { Text("Überspringen", color = Color.White.copy(alpha = 0.8f)) }
+                if (index < steps.lastIndex) TextButton(onClick = onDone) { Text("Überspringen", color = Color.White) }
                 androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
-                if (index > 0) TextButton(onClick = { index-- }) { Text("Zurück", color = Color.White.copy(alpha = 0.8f)) }
+                if (index > 0) TextButton(onClick = { index-- }) { Text("Zurück", color = Color.White) }
                 Button(onClick = { if (index < steps.lastIndex) index++ else onDone() }) {
                     Text(if (index < steps.lastIndex) "Weiter" else "Los geht's")
                 }
