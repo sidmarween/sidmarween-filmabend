@@ -95,7 +95,7 @@ private val steps = listOf(
     ),
     TourStep(
         "Neu & Trailer",
-        "Der Tipp des Tages aus dem Fernsehen, neue Filme und Serien mit deutschen Trailern, die Mediatheken von ARD, ZDF & Co., DVD-Neuheiten und das TV-Programm. Oben findest du ein Suchfeld für alles unter „Neu“.",
+        "Der Tipp des Tages aus dem Fernsehen, neue Filme und Serien mit deutschen Trailern, die Mediatheken von ARD, ZDF & Co., DVD-Neuheiten und das TV-Programm. Oben findest du ein Suchfeld, und mit 👎 lehnst du ab, was dir gar nicht gefällt.",
         TiwiPose.Surprised, tab = 2, target = "nav2"
     ),
     TourStep(

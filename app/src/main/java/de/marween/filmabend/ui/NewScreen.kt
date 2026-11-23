@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CheckCircleOutline
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ThumbDownOffAlt
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.PlayArrow
@@ -259,6 +260,9 @@ private fun TrailerList(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
                                         Icon(Icons.Filled.PlayArrow, null); Text("Trailer ansehen")
                                     }
                                     Spacer(Modifier.weight(1f))
+                                    IconButton(onClick = { vm.withTrailerTitle(tr) { vm.setRejected(it.info, true) } }) {
+                                        Icon(Icons.Filled.ThumbDownOffAlt, "Nicht mein Fall", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
                                     IconButton(onClick = { vm.withTrailerTitle(tr) { vm.setWatchlist(it.info, true); vm.message.value = "„${it.title}“ gemerkt" } }) {
                                         Icon(Icons.Filled.BookmarkBorder, "Merken", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
@@ -536,6 +540,7 @@ private fun NewCard(vm: AppViewModel, item: CatalogItem, onOpen: () -> Unit, onT
                         Text("Trailer")
                     }
                     Spacer(Modifier.weight(1f))
+                    RejectButton(vm, item)
                     IconButton(onClick = { if (t != null) vm.setWatchlist(t.info, !listed) else vm.setWatchlist(item.info, true) }) {
                         Icon(if (listed) Icons.Filled.Bookmark else Icons.Filled.BookmarkBorder, "Merken", tint = if (listed) Rose else MaterialTheme.colorScheme.onSurfaceVariant)
                     }
@@ -546,6 +551,14 @@ private fun NewCard(vm: AppViewModel, item: CatalogItem, onOpen: () -> Unit, onT
                 PartnerButtons(vm, item.title, item.key, { cb -> if (item.resolved) cb(item.info) else vm.withResolved(item) { cb(it.info) } })
             }
         }
+    }
+}
+
+/** 👎 „Nicht mein Fall“ – lehnt den Titel ab (fließt ins Geschmacksprofil, kommt nicht mehr). */
+@Composable
+fun RejectButton(vm: AppViewModel, item: CatalogItem) {
+    IconButton(onClick = { if (item.resolved) vm.setRejected(item.info, true) else vm.withResolved(item) { vm.setRejected(it.info, true) } }) {
+        Icon(Icons.Filled.ThumbDownOffAlt, "Nicht mein Fall", tint = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -582,7 +595,7 @@ fun rememberSeen(vm: AppViewModel): (String?, String) -> Boolean {
     val titles by vm.titles.collectAsStateWithLifecycle()
     val set = remember(titles, uid) {
         // Ausblenden: was du schon gesehen hast – und was schon auf eurer gemeinsamen Liste steht
-        titles.filter { it.isWatched(uid) || it.together }.flatMap { listOf(it.key, "n:" + normName(it.title)) }.toHashSet()
+        titles.filter { it.isWatched(uid) || it.together || it.isRejected(uid) }.flatMap { listOf(it.key, "n:" + normName(it.title)) }.toHashSet()
     }
     return { key, title -> (key != null && key in set) || ("n:" + normName(title)) in set }
 }

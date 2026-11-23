@@ -94,7 +94,13 @@ private fun MainShell(vm: AppViewModel, tab: Int, setTab: (Int) -> Unit) {
     val snack = remember { SnackbarHostState() }
     val msg by vm.message.collectAsStateWithLifecycle()
     LaunchedEffect(msg) {
-        msg?.let { snack.showSnackbar(it); vm.message.value = null }
+        msg?.let {
+            val undo = vm.undo.value
+            vm.undo.value = null
+            val res = snack.showSnackbar(it, actionLabel = if (undo != null) "Rückgängig" else null, duration = androidx.compose.material3.SnackbarDuration.Short)
+            if (res == androidx.compose.material3.SnackbarResult.ActionPerformed) undo?.invoke()
+            vm.message.value = null
+        }
     }
     val open: (Screen) -> Unit = { stack.add(it) }
     val back: () -> Unit = { if (stack.size > 1) stack.removeAt(stack.lastIndex) }

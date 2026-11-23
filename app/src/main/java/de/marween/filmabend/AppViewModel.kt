@@ -305,6 +305,24 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         if (value) message.value = "„${i.title}“ steht jetzt auf eurer Zusammen-Liste 💑"
     }
 
+    /** Für den Snackbar-Knopf „Rückgängig“ */
+    val undo = MutableStateFlow<(() -> Unit)?>(null)
+
+    /**
+     * „Nicht mein Fall“: Titel wird für mich nicht mehr vorgeschlagen und zählt
+     * im Geschmacksprofil wie eine schlechte Wertung (2/10).
+     */
+    fun setRejected(i: TitleInfo, value: Boolean) {
+        val u = uid.value ?: return
+        val ch = mutableMapOf<String, Any?>("rejected" to mapOf(u to if (value) true else FieldValue.delete()))
+        if (value) ch["watchlist"] = mapOf(u to FieldValue.delete())
+        write(i, ch)
+        if (value) {
+            undo.value = { setRejected(i, false) }
+            message.value = "„${i.title}“ abgelehnt – wird nicht mehr vorgeschlagen"
+        }
+    }
+
     fun setRating(i: TitleInfo, rating: Int?) {
         val u = uid.value ?: return
         val ch = mutableMapOf<String, Any?>("ratings" to mapOf(u to (rating ?: FieldValue.delete())))
@@ -417,7 +435,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 val taste = HashMap<String, Double>()
                 val example = HashMap<String, Pair<String, Int>>()
                 for (t in lib) for (who in people) {
-                    val r = t.rating(who) ?: continue
+                    val r = t.rating(who) ?: (if (t.isRejected(who)) 2 else continue)
                     for (g in t.genres.map { Catalog.genre(it) }.distinct()) {
                         taste[g] = (taste[g] ?: 0.0) + (r - 5.5)
                         if (r >= 7 && (example[g]?.second ?: 0) < r) example[g] = t.title to r
@@ -573,7 +591,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val taste = HashMap<String, Double>()
         val example = HashMap<String, Pair<String, Int>>()
         for (t in titles.value) for (who in people) {
-            val r = t.rating(who) ?: continue
+            val r = t.rating(who) ?: (if (t.isRejected(who)) 2 else continue)
             for (g in t.genres.map { Catalog.genre(it) }.distinct()) {
                 taste[g] = (taste[g] ?: 0.0) + (r - 5.5)
                 if (r >= 7 && (example[g]?.second ?: 0) < r) example[g] = t.title to r
@@ -603,6 +621,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     val reason = when {
                         best != null && best >= 7 -> { score += 10; "Habt ihr mit $best/10 bewertet – läuft wieder" }
                         best != null && best <= 4 -> { score -= 10; "Fandet ihr nicht so gut" }
+                        known?.isRejected(p) == true -> { score -= 8; "Nicht ganz euer Fall" }
                         topGenre != null -> "Ihr mögt $topGenre" + (example[topGenre]?.let { " – wie „$it“" } ?: "")
                         else -> "Beliebt"
                     }

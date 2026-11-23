@@ -23,7 +23,10 @@ data class Title(
     val together: Boolean = false,
     val togetherBy: String = "",
     val posterChecked: Boolean = false,
+    /** „Nicht mein Fall“ – pro Person abgelehnt unter „Neu“ */
+    val rejected: Map<String, Boolean> = emptyMap(),
 ) {
+    fun isRejected(uid: String?) = uid != null && rejected[uid] == true
     fun isWatched(uid: String?) = uid != null && watched[uid] == true
     fun onWatchlist(uid: String?) = uid != null && watchlist[uid] == true
     fun rating(uid: String?): Int? = uid?.let { ratings[it] }
@@ -57,6 +60,7 @@ data class Title(
                 together = doc.getBoolean("together") == true,
                 togetherBy = doc.getString("togetherBy") ?: "",
                 posterChecked = doc.getBoolean("posterChecked") == true,
+                rejected = boolMap(doc.get("rejected")),
             )
         }
 

@@ -13,6 +13,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.ThumbDownOffAlt
 import androidx.compose.foundation.border
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -137,6 +138,11 @@ fun DailyPickCard(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
                 ) { Icon(Icons.Filled.PlayArrow, null); Text("Trailer") }
                 TextButton(onClick = { openDetail(item.type, item.id) }) { Text("Details") }
+                androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
+                TextButton(onClick = { if (item.resolved) vm.setRejected(item.info, true) else vm.withResolved(item) { vm.setRejected(it.info, true) } }) {
+                    Icon(Icons.Filled.ThumbDownOffAlt, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(" Nicht mein Fall", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
             PartnerButtons(vm, item.title, item.key, { cb -> cb(item.info) })
         }
