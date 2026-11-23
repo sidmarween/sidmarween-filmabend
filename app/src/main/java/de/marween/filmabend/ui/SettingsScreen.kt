@@ -45,6 +45,7 @@ import de.marween.filmabend.BuildConfig
 /** Änderungsliste – bei jeder neuen Version oben ergänzen. */
 private val changelog = listOf(
     "1.1" to listOf(
+        "Unter „Neu“ werden Titel, die schon auf eurer gemeinsamen Liste stehen, nicht mehr vorgeschlagen",
         "Neu: Suchfeld unter „Neu“ – Titel, Sender oder Genre im offenen Bereich finden",
         "Mehr Sendungen und mehr Abwechslung bei TV-Tipps (jeden Tag neu gemischt, verschiedene Arten)",
         "Neu: Erklärmodus – Tiwi zeigt beim ersten Start jeden Bereich (erneut startbar in den Einstellungen)",

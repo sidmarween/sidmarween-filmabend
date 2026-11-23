@@ -581,7 +581,8 @@ fun rememberSeen(vm: AppViewModel): (String?, String) -> Boolean {
     val uid by vm.uid.collectAsStateWithLifecycle()
     val titles by vm.titles.collectAsStateWithLifecycle()
     val set = remember(titles, uid) {
-        titles.filter { it.isWatched(uid) }.flatMap { listOf(it.key, "n:" + normName(it.title)) }.toHashSet()
+        // Ausblenden: was du schon gesehen hast – und was schon auf eurer gemeinsamen Liste steht
+        titles.filter { it.isWatched(uid) || it.together }.flatMap { listOf(it.key, "n:" + normName(it.title)) }.toHashSet()
     }
     return { key, title -> (key != null && key in set) || ("n:" + normName(title)) in set }
 }
