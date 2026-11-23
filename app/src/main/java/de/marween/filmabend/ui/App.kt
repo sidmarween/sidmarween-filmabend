@@ -119,22 +119,22 @@ private fun MainShell(vm: AppViewModel, tab: Int, setTab: (Int) -> Unit) {
                             )
                         },
                         actions = {
-                            if (tab == 2) IconButton(onClick = { vm.refreshAll() }) { Icon(Icons.Filled.Refresh, "Alles aktualisieren") }
-                            IconButton(onClick = { open(Screen.Search) }) { Icon(Icons.Filled.Search, "Suchen") }
-                            IconButton(onClick = { open(Screen.Settings) }) { Icon(Icons.Filled.Settings, "Einstellungen") }
+                            if (tab == 2) IconButton(onClick = { vm.refreshAll() }, modifier = Modifier.tourTarget("refresh")) { Icon(Icons.Filled.Refresh, "Alles aktualisieren") }
+                            IconButton(onClick = { open(Screen.Search) }, modifier = Modifier.tourTarget("search")) { Icon(Icons.Filled.Search, "Suchen") }
+                            IconButton(onClick = { open(Screen.Settings) }, modifier = Modifier.tourTarget("settings")) { Icon(Icons.Filled.Settings, "Einstellungen") }
                         },
                         colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
                     )
                 },
                 bottomBar = {
                     NavigationBar {
-                        NavigationBarItem(tab == 0, { setTab(0) }, { Icon(Icons.Filled.VideoLibrary, null) }, label = { Text("Bibliothek") })
-                        NavigationBarItem(tab == 1, { setTab(1) }, { Icon(Icons.Filled.AutoAwesome, null) }, label = { Text("Entdecken") })
-                        NavigationBarItem(tab == 2, { setTab(2) }, { Icon(Icons.Filled.Movie, null) }, label = { Text("Neu") })
-                        NavigationBarItem(tab == 3, { setTab(3) }, { Icon(Icons.Filled.Leaderboard, null) }, label = { Text("Charts") })
+                        NavigationBarItem(tab == 0, { setTab(0) }, { Icon(Icons.Filled.VideoLibrary, null) }, label = { Text("Bibliothek") }, modifier = Modifier.tourTarget("nav0"))
+                        NavigationBarItem(tab == 1, { setTab(1) }, { Icon(Icons.Filled.AutoAwesome, null) }, label = { Text("Entdecken") }, modifier = Modifier.tourTarget("nav1"))
+                        NavigationBarItem(tab == 2, { setTab(2) }, { Icon(Icons.Filled.Movie, null) }, label = { Text("Neu") }, modifier = Modifier.tourTarget("nav2"))
+                        NavigationBarItem(tab == 3, { setTab(3) }, { Icon(Icons.Filled.Leaderboard, null) }, label = { Text("Charts") }, modifier = Modifier.tourTarget("nav3"))
                         NavigationBarItem(tab == 4, { setTab(4) }, {
                             BadgedBox(badge = { if (unseen > 0) Badge { Text("$unseen") } }) { Icon(Icons.Filled.Mail, null) }
-                        }, label = { Text("Post") })
+                        }, label = { Text("Post") }, modifier = Modifier.tourTarget("nav4"))
                     }
                 }
             ) { pad ->
@@ -172,6 +172,12 @@ private fun MainShell(vm: AppViewModel, tab: Int, setTab: (Int) -> Unit) {
         }
         if (stack.last() != Screen.Home) {
             SnackbarHost(snack, Modifier.align(Alignment.BottomCenter).padding(16.dp))
+        }
+        // Erklärmodus mit Tiwi (erster Start oder aus den Einstellungen)
+        val tour by vm.tourActive.collectAsStateWithLifecycle()
+        if (tour) {
+            LaunchedEffect(Unit) { while (stack.size > 1) stack.removeAt(stack.lastIndex) }
+            TourOverlay(setTab) { vm.endTour() }
         }
     }
 }

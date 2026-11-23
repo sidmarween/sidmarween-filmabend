@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -44,6 +45,9 @@ import de.marween.filmabend.BuildConfig
 /** Änderungsliste – bei jeder neuen Version oben ergänzen. */
 private val changelog = listOf(
     "1.1" to listOf(
+        "Neu: Erklärmodus – Tiwi zeigt beim ersten Start jeden Bereich (erneut startbar in den Einstellungen)",
+        "Neu: Sendung des Tages mit „Anderer Tipp“ und weiteren Vorschlägen zur Auswahl",
+        "Neu: Maskottchen Tiwi und neues App-Icon",
         "Behoben: Gesehen-Haken und Bewertungen reagierten direkt nach dem Anlegen der Liste nicht",
         "Englische Beschreibungen werden automatisch ins Deutsche übersetzt",
         "Neu: Seite „Neu & Trailer“ mit neuen Filmen (deutsche Trailer) und Serienstarts",
@@ -93,6 +97,17 @@ fun SettingsScreen(vm: AppViewModel, back: () -> Unit) {
             Modifier.padding(pad).fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
+            SectionCard {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Tiwi(TiwiPose.Waving, Modifier.height(64.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("Erklärmodus", style = MaterialTheme.typography.titleMedium)
+                        Text("Tiwi zeigt dir nochmal Schritt für Schritt, was die App alles kann.",
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+                Button(onClick = { vm.startTour() }) { Text("Erklärmodus starten") }
+            }
             SectionCard {
                 Text("Dein Name", style = MaterialTheme.typography.titleMedium)
                 Row(verticalAlignment = Alignment.CenterVertically) {

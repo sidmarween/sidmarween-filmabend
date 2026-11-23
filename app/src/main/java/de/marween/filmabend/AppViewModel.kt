@@ -60,6 +60,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private val prefs = app.getSharedPreferences("filmabend", Context.MODE_PRIVATE)
 
     val uid = MutableStateFlow(auth.currentUser?.uid)
+
+    /** Erklärmodus mit Tiwi – läuft beim ersten Start automatisch. */
+    val tourActive = MutableStateFlow(!prefs.getBoolean("tourDone", false))
+    fun startTour() { tourActive.value = true }
+    fun endTour() { prefs.edit().putBoolean("tourDone", true).apply(); tourActive.value = false }
     val profile = MutableStateFlow<Profile?>(null)
     val profileLoaded = MutableStateFlow(false)
     val household = MutableStateFlow<Household?>(null)
