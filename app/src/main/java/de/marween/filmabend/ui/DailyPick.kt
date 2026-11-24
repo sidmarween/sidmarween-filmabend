@@ -213,7 +213,13 @@ fun airLabel(sec: Long): String {
 fun rememberTvPoster(s: de.marween.filmabend.TvShow): String? {
     var poster by remember(s.item.key) { mutableStateOf(s.item.poster) }
     LaunchedEffect(s.item.key) {
-        if (poster == null) poster = runCatching { de.marween.filmabend.PosterFinder.find(s.item.title) }.getOrNull()
+        if (poster == null) poster = runCatching {
+            de.marween.filmabend.TitleLookup.findLoose(s.item.title)?.poster
+                ?: de.marween.filmabend.PosterFinder.find(s.item.title, s.item.type)
+                ?: s.item.title.split(" – ", " - ", ": ", " | ").first().trim()
+                    .takeIf { it.length >= 3 && it != s.item.title.trim() }
+                    ?.let { de.marween.filmabend.PosterFinder.find(it, s.item.type) }
+        }.getOrNull()
     }
     return poster
 }
