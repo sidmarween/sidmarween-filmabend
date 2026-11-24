@@ -80,18 +80,13 @@ private val steps = listOf(
     ),
     TourStep(
         "Bibliothek",
-        "Hier stehen alle eure Filme und Serien. Hakt ab, was ihr gesehen habt, setzt Titel auf die Merkliste und bewertet sie von 1 bis 10 – jeder für sich.",
+        "Hier stehen alle eure Filme und Serien. Hakt ab, was ihr gesehen habt, setzt Titel auf die Merkliste und bewertet sie von 1 bis 10 – jeder für sich. Aus euren Bewertungen lernt die App euren Geschmack.",
         TiwiPose.Waving, tab = 0, target = "nav0"
     ),
     TourStep(
         "Suchen",
         "Mit der Lupe findest du jeden Film und jede Serie – oder alle Titel eines Schauspielers. Antippen, eintragen, fertig.",
         TiwiPose.Investigating, target = "search"
-    ),
-    TourStep(
-        "Entdecken",
-        "Vorschläge, die zu eurem Geschmack passen – für euch beide, nur für dich oder für deinen Partner. Oder stöbert nach Genre.",
-        TiwiPose.Investigating, tab = 1, target = "nav1"
     ),
     TourStep(
         "Neu & Trailer",
