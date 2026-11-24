@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
@@ -121,7 +122,7 @@ fun DailyPickCard(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
                 }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Poster(item.poster, item.type, Modifier.width(96.dp), corner = 8.dp)
+                TvPoster(s, Modifier.width(96.dp), corner = 8.dp)
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     Text(item.title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     val whenTxt = if (s.nextAir > 0) "📺 " + airLabel(s.nextAir) + " · "
@@ -174,8 +175,8 @@ fun DailyPickCard(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
                     Modifier.width(92.dp).clickable { offset = (i - base).mod(candidates.size) },
                     verticalArrangement = Arrangement.spacedBy(3.dp)
                 ) {
-                    Poster(
-                        c.item.poster, c.item.type,
+                    TvPoster(
+                        c,
                         Modifier.fillMaxWidth().then(
                             if (selected) Modifier.border(2.dp, Gold, RoundedCornerShape(8.dp)) else Modifier
                         ),
@@ -204,5 +205,39 @@ fun airLabel(sec: Long): String {
         today -> "Heute $time"
         today.plusDays(1) -> "Morgen $time"
         else -> java.text.SimpleDateFormat("EE", java.util.Locale.GERMANY).format(java.util.Date(sec * 1000)) + " " + time
+    }
+}
+
+/** Bild einer Sendung findet sich, wenn nötig, nach; sonst eine Kachel mit Sender & Art. */
+@Composable
+fun rememberTvPoster(s: de.marween.filmabend.TvShow): String? {
+    var poster by remember(s.item.key) { mutableStateOf(s.item.poster) }
+    LaunchedEffect(s.item.key) {
+        if (poster == null) poster = runCatching { de.marween.filmabend.PosterFinder.find(s.item.title) }.getOrNull()
+    }
+    return poster
+}
+
+@Composable
+fun TvPoster(s: de.marween.filmabend.TvShow, modifier: Modifier = Modifier, corner: androidx.compose.ui.unit.Dp = 8.dp) {
+    val poster = rememberTvPoster(s)
+    if (poster != null) { Poster(poster, s.item.type, modifier, corner); return }
+    val emoji = when (s.kind) {
+        "Krimi" -> "🔍"; "Doku" -> "🌍"; "Comedy" -> "😂"; "Show" -> "🎤"; "Spielfilm" -> "🎬"
+        else -> if (s.item.type == "movie") "🎬" else "📺"
+    }
+    androidx.compose.foundation.layout.Box(
+        modifier.aspectRatio(2f / 3f)
+            .background(Brush.verticalGradient(listOf(Color(0xFF4A3470), Color(0xFF2A1B3D))), RoundedCornerShape(corner))
+            .padding(6.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(emoji, fontSize = androidx.compose.ui.unit.TextUnit(30f, androidx.compose.ui.unit.TextUnitType.Sp))
+            Text(
+                s.network.substringBefore(" · "), style = MaterialTheme.typography.labelMedium, color = Gold,
+                fontWeight = FontWeight.Bold, maxLines = 2, textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
+        }
     }
 }

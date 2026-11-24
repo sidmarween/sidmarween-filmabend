@@ -742,6 +742,13 @@ object TitleLookup {
         }
     }
 
+    /** Wie [find], versucht aber auch den Haupttitel ohne Zusatz („Expedition Unknown – Mythen …“ → „Expedition Unknown“). */
+    suspend fun findLoose(title: String): CatalogItem? {
+        find(title)?.let { return it }
+        val main = title.split(" – ", " - ", ": ", " | ").first().trim()
+        return if (main.length >= 3 && main != title.trim()) find(main) else null
+    }
+
     private suspend fun <T> kotlinx.coroutines.sync.Mutex.withLockCompat(block: suspend () -> T): T {
         lock(); try { return block() } finally { unlock() }
     }
@@ -1351,7 +1358,8 @@ object Epg {
                         } else if (e == org.xmlpull.v1.XmlPullParser.END_TAG) depth--
                         else if (e == org.xmlpull.v1.XmlPullParser.END_DOCUMENT) break
                     }
-                    out += EpgEntry(title, sub, desc, cat, ch.first, ch.second, start, stop, icon)
+                    fun clean(x: String) = x.replace("\\n", " ").replace("\n", " ").replace(Regex("\\s+"), " ").trim()
+                    out += EpgEntry(clean(title), clean(sub), clean(desc), cat, ch.first, ch.second, start, stop, icon)
                 }
                 ev = p.next()
             }
@@ -1400,5 +1408,43 @@ object Epg {
             c.contains("film") || c.contains("movie") -> "Spielfilm"
             else -> e.category.replaceFirstChar { it.uppercase() }
         }
+    }
+}
+
+
+/**
+ * Sucht ein Bild für eine TV-Sendung: erst in der Filmdatenbank (Poster),
+ * sonst das Titelbild des deutschen Wikipedia-Artikels.
+ */
+object PosterFinder {
+    private val cache = java.util.concurrent.ConcurrentHashMap<String, String>()
+
+    suspend fun find(title: String): String? {
+        val k = normName(title)
+        cache[k]?.let { return it.ifEmpty { null } }
+        val hit = runCatching { TitleLookup.findLoose(title)?.poster }.getOrNull()
+            ?: runCatching { wiki(title) }.getOrNull()
+            ?: title.split(" – ", " - ", ": ", " | ").first().trim().takeIf { it.length >= 3 && it != title.trim() }
+                ?.let { runCatching { wiki(it) }.getOrNull() }
+        cache[k] = hit ?: ""
+        return hit
+    }
+
+    private suspend fun wiki(q: String): String? = withContext(Dispatchers.IO) {
+        val url = "https://de.wikipedia.org/w/api.php?action=query&format=json&prop=pageimages&piprop=thumbnail" +
+            "&pithumbsize=400&generator=search&gsrlimit=1&gsrsearch=" + URLEncoder.encode(q, "UTF-8")
+        val conn = URL(url).openConnection() as HttpURLConnection
+        conn.connectTimeout = 10000; conn.readTimeout = 10000
+        conn.setRequestProperty("User-Agent", "Filmabend-App (Android)")
+        try {
+            val o = JSONObject(conn.inputStream.bufferedReader().use { it.readText() })
+            val pages = o.optJSONObject("query")?.optJSONObject("pages") ?: return@withContext null
+            val page = pages.optJSONObject(pages.keys().asSequence().firstOrNull() ?: return@withContext null) ?: return@withContext null
+            // Nur nehmen, wenn der Artikel wirklich zur Sendung passt
+            val t = normName(page.optString("title"))
+            val n = normName(q)
+            if (!(t.startsWith(n) || n.startsWith(t)) || t.length < 3) return@withContext null
+            page.optJSONObject("thumbnail")?.optString("source")?.takeIf { it.isNotBlank() }
+        } finally { conn.disconnect() }
     }
 }

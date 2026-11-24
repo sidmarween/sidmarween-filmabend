@@ -341,7 +341,9 @@ private fun TvList(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
                     val start = airLabel(s.nextAir)
                     val end = if (s.endAir > 0) "–" + hm.format(java.time.Instant.ofEpochSecond(s.endAir).atZone(zone)) else ""
                     val running = s.nextAir <= nowSec && s.endAir > nowSec
+                    val poster = rememberTvPoster(s)
                     val item = s.item.copy(
+                        poster = poster,
                         extra = (if (running) "🔴 Läuft gerade · " else "📺 ") + "$start$end · ${s.network}\n${s.kind}" + (if (r.reason.isNotBlank()) " · ${r.reason}" else ""),
                     )
                     NewCard(

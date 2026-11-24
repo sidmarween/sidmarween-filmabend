@@ -697,7 +697,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 val enriched = HashMap<String, TvShow>()
                 for (r in top) {
                     val s = r.show
-                    val hit = runCatching { TitleLookup.find(s.item.title) }.getOrNull() ?: continue
+                    val hit = runCatching { TitleLookup.findLoose(s.item.title) }.getOrNull() ?: continue
                     if (hit.type != s.item.type && s.item.type == "movie" && hit.type == "tv") continue
                     enriched[s.item.key] = s.copy(
                         item = hit.copy(
