@@ -1246,3 +1246,158 @@ object FunFacts {
         return runCatching { German.translate(s) }.getOrDefault(s)
     }
 }
+
+// ======================= EPG: Heute im Fernsehen (XMLTV, öffentlich-rechtlich & privat) =======================
+
+data class EpgEntry(
+    val title: String,
+    val subTitle: String,
+    val desc: String,
+    val category: String,
+    val channel: String,
+    val public: Boolean,
+    val start: Long,   // Sekunden
+    val stop: Long,    // Sekunden
+    val icon: String?,
+) {
+    val minutes get() = ((stop - start) / 60).toInt()
+}
+
+/**
+ * Elektronischer Programmführer für die deutschen Free-TV-Sender – frei verfügbare XMLTV-Daten
+ * (epgshare01, täglich aktualisiert). Wird für 6 Stunden zwischengespeichert.
+ */
+object Epg {
+    private const val URL_DE = "https://epgshare01.online/epgshare01/epg_ripper_DE1.xml.gz"
+
+    /** XMLTV-Kanal -> (Anzeigename, öffentlich-rechtlich?) */
+    private val channels = mapOf(
+        "Das.Erste.de" to ("Das Erste" to true), "ZDF.de" to ("ZDF" to true), "3sat.de" to ("3sat" to true),
+        "ARTE.de" to ("arte" to true), "ZDFneo.de" to ("ZDFneo" to true), "ZDFinfo.de" to ("ZDFinfo" to true),
+        "ONE.de" to ("ONE" to true), "ARD.alpha.de" to ("ARD alpha" to true), "PHOENIX.de" to ("phoenix" to true),
+        "BR.de" to ("BR" to true), "HR.de" to ("hr" to true), "MDR.de" to ("MDR" to true), "NDR.de" to ("NDR" to true),
+        "RBB.de" to ("rbb" to true), "SWR/SR.de" to ("SWR" to true), "WDR.de" to ("WDR" to true),
+        "RTL.de" to ("RTL" to false), "SAT.1.de" to ("SAT.1" to false), "ProSieben.de" to ("ProSieben" to false),
+        "VOX.de" to ("VOX" to false), "kabel.eins.de" to ("kabel eins" to false), "RTLZWEI.de" to ("RTLZWEI" to false),
+        "ProSieben.MAXX.de" to ("ProSieben MAXX" to false), "NITRO.de" to ("NITRO" to false), "sixx.de" to ("sixx" to false),
+        "Tele.5.de" to ("TELE 5" to false), "DMAX.de" to ("DMAX" to false), "SAT.1.Gold.de" to ("SAT.1 Gold" to false),
+        "kabel.eins.Doku.de" to ("kabel eins Doku" to false), "RTLup.de" to ("RTLup" to false), "VOXup.de" to ("VOXup" to false),
+        "TLC.de" to ("TLC" to false), "Comedy.Central.de" to ("Comedy Central" to false), "N24.DOKU.de" to ("WELT/N24 Doku" to false),
+        "Welt.der.Wunder.TV.de" to ("Welt der Wunder" to false), "Servus.TV.Österreich.de" to ("ServusTV" to false),
+    )
+
+    /** Nachrichten, Wetter, Shopping & Co. sind keine Abend-Tipps. */
+    private val skipWords = listOf(
+        "nachricht", "news", "wetter", "tagesschau", "tagesthemen", "heute journal", "heute-journal", "rtl aktuell",
+        "lotto", "teleshopping", "shopping", "dauerwerbesendung", "brisant", "morgenmagazin", "mittagsmagazin",
+        "sat.1-frühstücksfernsehen", "frühstücksfernsehen", "punkt 12", "exclusiv", "explosiv", "taff", "galileo",
+        "börse", "sendeschluss", "programmhinweis", "infomercial", "werbung", "sportschau", "sport extra",
+    )
+
+    @Volatile private var cache: Pair<Long, List<EpgEntry>>? = null
+
+    suspend fun load(cacheDir: java.io.File, force: Boolean = false): List<EpgEntry> = withContext(Dispatchers.IO) {
+        val now = System.currentTimeMillis()
+        cache?.let { (at, list) -> if (!force && now - at < 6 * 3600_000L && list.isNotEmpty()) return@withContext list }
+        val file = java.io.File(cacheDir, "epg_de.xml.gz")
+        val fresh = file.exists() && now - file.lastModified() < 6 * 3600_000L && file.length() > 100_000
+        if (force || !fresh) {
+            val tmp = java.io.File(cacheDir, "epg_de.tmp")
+            val conn = URL(URL_DE).openConnection() as HttpURLConnection
+            conn.connectTimeout = 15000; conn.readTimeout = 60000
+            conn.setRequestProperty("User-Agent", "Filmabend-App (Android)")
+            try {
+                if (conn.responseCode !in 200..299) throw IOException("Programmführer: Fehler ${conn.responseCode}")
+                conn.inputStream.use { inp -> tmp.outputStream().use { inp.copyTo(it) } }
+                tmp.renameTo(file)
+            } catch (e: Exception) {
+                if (!file.exists()) throw e   // alte Datei bleibt nutzbar
+            } finally { conn.disconnect() }
+        }
+        val list = parse(file)
+        cache = now to list
+        list
+    }
+
+    private fun parse(file: java.io.File): List<EpgEntry> {
+        val fmt = java.text.SimpleDateFormat("yyyyMMddHHmmss Z", java.util.Locale.US)
+        val nowSec = System.currentTimeMillis() / 1000
+        val until = nowSec + 36 * 3600
+        val out = ArrayList<EpgEntry>()
+        java.util.zip.GZIPInputStream(java.io.BufferedInputStream(file.inputStream(), 65536)).use { input ->
+            val p = android.util.Xml.newPullParser()
+            p.setInput(input, "UTF-8")
+            var ev = p.eventType
+            while (ev != org.xmlpull.v1.XmlPullParser.END_DOCUMENT) {
+                if (ev == org.xmlpull.v1.XmlPullParser.START_TAG && p.name == "programme") {
+                    val ch = channels[p.getAttributeValue(null, "channel")]
+                    val start = runCatching { fmt.parse(p.getAttributeValue(null, "start"))!!.time / 1000 }.getOrDefault(0L)
+                    val stop = runCatching { fmt.parse(p.getAttributeValue(null, "stop"))!!.time / 1000 }.getOrDefault(start)
+                    if (ch == null || stop < nowSec || start > until) { skip(p); ev = p.next(); continue }
+                    var title = ""; var sub = ""; var desc = ""; var cat = ""; var icon: String? = null
+                    var depth = 1
+                    while (depth > 0) {
+                        val e = p.next()
+                        if (e == org.xmlpull.v1.XmlPullParser.START_TAG) {
+                            depth++
+                            when (p.name) {
+                                "title" -> if (title.isEmpty()) { title = p.nextText().trim(); depth-- }
+                                "sub-title" -> if (sub.isEmpty()) { sub = p.nextText().trim(); depth-- }
+                                "desc" -> if (desc.isEmpty()) { desc = p.nextText().trim(); depth-- }
+                                "category" -> if (cat.isEmpty()) { cat = p.nextText().trim(); depth-- }
+                                "icon" -> if (icon == null) icon = p.getAttributeValue(null, "src")
+                            }
+                        } else if (e == org.xmlpull.v1.XmlPullParser.END_TAG) depth--
+                        else if (e == org.xmlpull.v1.XmlPullParser.END_DOCUMENT) break
+                    }
+                    out += EpgEntry(title, sub, desc, cat, ch.first, ch.second, start, stop, icon)
+                }
+                ev = p.next()
+            }
+        }
+        return out
+    }
+
+    private fun skip(p: org.xmlpull.v1.XmlPullParser) {
+        var depth = 1
+        while (depth > 0) {
+            when (p.next()) {
+                org.xmlpull.v1.XmlPullParser.START_TAG -> depth++
+                org.xmlpull.v1.XmlPullParser.END_TAG -> depth--
+                org.xmlpull.v1.XmlPullParser.END_DOCUMENT -> return
+            }
+        }
+    }
+
+    /** Lohnt sich das als Abend-Tipp? (keine Nachrichten, nicht zu kurz) */
+    fun worthIt(e: EpgEntry): Boolean {
+        if (e.title.isBlank() || e.minutes < 40) return false
+        val t = (e.title + " " + e.category).lowercase()
+        return skipWords.none { t.contains(it) }
+    }
+
+    /** Spielfilm oder Sendung/Serie? */
+    fun typeOf(e: EpgEntry): String {
+        val c = e.category.lowercase()
+        return when {
+            c.contains("film") || c.contains("movie") -> "movie"
+            c.contains("serie") || c.contains("series") || e.subTitle.isNotBlank() -> "tv"
+            e.minutes >= 85 -> "movie"
+            else -> "tv"
+        }
+    }
+
+    /** Lesbare Art der Sendung für die Abwechslung (Krimi, Doku, Show …). */
+    fun kindOf(e: EpgEntry): String {
+        val c = e.category.lowercase()
+        return when {
+            c.isBlank() -> if (typeOf(e) == "movie") "Spielfilm" else "Sendung"
+            c.contains("krimi") || c.contains("crime") || c.contains("thriller") -> "Krimi"
+            c.contains("doku") || c.contains("documentary") || c.contains("reportage") -> "Doku"
+            c.contains("komödie") || c.contains("comedy") -> "Comedy"
+            c.contains("show") || c.contains("quiz") || c.contains("unterhaltung") -> "Show"
+            c.contains("film") || c.contains("movie") -> "Spielfilm"
+            else -> e.category.replaceFirstChar { it.uppercase() }
+        }
+    }
+}

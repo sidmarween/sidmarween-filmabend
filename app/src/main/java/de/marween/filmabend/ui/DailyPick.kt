@@ -49,14 +49,20 @@ import de.marween.filmabend.fmt1
  */
 @Composable
 fun DailyPickCard(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
-    val tv by vm.tv.collectAsStateWithLifecycle()
+    val today by vm.tvToday.collectAsStateWithLifecycle()
+    val old by vm.tv.collectAsStateWithLifecycle()
+    // Echtes TV-Programm von heute; nur wenn das nicht klappt, die bisherigen Sendungs-Tipps
+    val useEpg = today.items.isNotEmpty() || today.loading
+    val tv = if (useEpg) today else old
     val seen = rememberSeen(vm)
     val ctx = LocalContext.current
-    LaunchedEffect(Unit) { vm.loadTv() }
+    LaunchedEffect(Unit) { vm.loadTvToday() }
+    LaunchedEffect(today.error) { if (today.error != null) vm.loadTv() }
 
     val day = java.time.LocalDate.now()
     // Die 12 besten Treffer für euch; jeden Tag ein anderer davon (bevorzugt: läuft heute im TV)
     val candidates = remember(tv.items, day) {
+        if (useEpg) return@remember tv.items.filterNot { seen(it.show.item.key, it.show.item.title) }.take(25)
         val fresh = tv.items.filterNot { seen(it.show.item.key, it.show.item.title) }
         val todayEnd = day.plusDays(1).atStartOfDay(java.time.ZoneId.of("Europe/Berlin")).toEpochSecond()
         val onToday = fresh.filter { it.show.nextAir in 1 until todayEnd }.take(3)
@@ -91,7 +97,9 @@ fun DailyPickCard(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
 
     Card(
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp).clickable { openDetail(item.type, item.id) }
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp).clickable {
+            if (item.resolved) openDetail(item.type, item.id) else vm.withTitle(item.title) { openDetail(it.type, it.id) }
+        }
     ) {
         Column(
             Modifier
@@ -116,7 +124,7 @@ fun DailyPickCard(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
                 Poster(item.poster, item.type, Modifier.width(96.dp), corner = 8.dp)
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     Text(item.title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    val whenTxt = if (s.nextAir > 0) "📺 " + java.text.SimpleDateFormat("EE HH:mm", java.util.Locale.GERMANY).format(java.util.Date(s.nextAir * 1000)) + " · "
+                    val whenTxt = if (s.nextAir > 0) "📺 " + airLabel(s.nextAir) + " · "
                     else "▶ Abrufbar bei "
                     Text(whenTxt + s.network, style = MaterialTheme.typography.labelMedium, color = Gold, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     Text("${s.kind} · ${pick.reason}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)
@@ -137,7 +145,7 @@ fun DailyPickCard(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
                     onClick = { openUrl(ctx, item.ytUrl ?: Trailers.match(vm.trailers.value.items, item.title)?.url ?: Catalog.youtubeTrailer(item.title)) },
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
                 ) { Icon(Icons.Filled.PlayArrow, null); Text("Trailer") }
-                TextButton(onClick = { openDetail(item.type, item.id) }) { Text("Details") }
+                TextButton(onClick = { if (item.resolved) openDetail(item.type, item.id) else vm.withTitle(item.title) { openDetail(it.type, it.id) } }) { Text("Details") }
                 androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
                 TextButton(onClick = { if (item.resolved) vm.setRejected(item.info, true) else vm.withResolved(item) { vm.setRejected(it.info, true) } }) {
                     Icon(Icons.Filled.ThumbDownOffAlt, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -177,11 +185,24 @@ fun DailyPickCard(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
                         c.item.title, style = MaterialTheme.typography.labelSmall, maxLines = 2, overflow = TextOverflow.Ellipsis,
                         color = if (selected) Gold else MaterialTheme.colorScheme.onSurface
                     )
-                    val t = if (c.nextAir > 0) java.text.SimpleDateFormat("EE HH:mm", java.util.Locale.GERMANY).format(java.util.Date(c.nextAir * 1000))
+                    val t = if (c.nextAir > 0) airLabel(c.nextAir)
                     else "Abrufbar"
                     Text(t, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
                 }
             }
         }
+    }
+}
+
+/** „Heute 20:15“, „Morgen 00:30“ oder „Do 20:15“ */
+private fun airLabel(sec: Long): String {
+    val zone = java.time.ZoneId.of("Europe/Berlin")
+    val dt = java.time.Instant.ofEpochSecond(sec).atZone(zone)
+    val today = java.time.LocalDate.now(zone)
+    val time = java.time.format.DateTimeFormatter.ofPattern("HH:mm").format(dt)
+    return when (dt.toLocalDate()) {
+        today -> "Heute $time"
+        today.plusDays(1) -> "Morgen $time"
+        else -> java.text.SimpleDateFormat("EE", java.util.Locale.GERMANY).format(java.util.Date(sec * 1000)) + " " + time
     }
 }

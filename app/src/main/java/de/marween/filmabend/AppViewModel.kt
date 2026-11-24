@@ -80,6 +80,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val trailers = MutableStateFlow(TrState())
     val discs = MutableStateFlow(DiscState())
     val tv = MutableStateFlow(TvState())
+    /** Tipp des Tages: was heute laut Programmführer (EPG) im Fernsehen läuft */
+    val tvToday = MutableStateFlow(TvState())
     val mtSeries = MutableStateFlow(MtState())
 
     private var userReg: ListenerRegistration? = null
@@ -580,6 +582,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         loadNew("tv", force = true)
         loadDiscs(force = true)
         loadTv(force = true)
+        loadTvToday(force = true)
         loadMediathek(series = false, force = true)
         loadMediathek(series = true, force = true)
     }
@@ -634,6 +637,89 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 TvState(error = e.localizedMessage ?: "Fernsehprogramm konnte nicht geladen werden")
             }
         }
+    }
+
+    /**
+     * Tipp des Tages aus dem echten Fernsehprogramm (EPG) aller großen Sender:
+     * nur was heute (bis ca. 2 Uhr nachts) läuft, nach eurem Geschmack sortiert.
+     */
+    fun loadTvToday(force: Boolean = false) {
+        if (!force && (tvToday.value.loading || tvToday.value.items.isNotEmpty())) return
+        tvToday.value = tvToday.value.copy(loading = true, error = null)
+        viewModelScope.launch {
+            try {
+                val all = Epg.load(getApplication<Application>().cacheDir, force).filter { Epg.worthIt(it) }
+                val zone = java.time.ZoneId.of("Europe/Berlin")
+                val nowSec = System.currentTimeMillis() / 1000
+                val tonightEnd = java.time.LocalDate.now(zone).plusDays(1).atTime(2, 0).atZone(zone).toEpochSecond()
+                var window = all.filter { it.start >= nowSec - 20 * 60 && it.start < tonightEnd }
+                if (window.size < 15) window = all.filter { it.start >= nowSec - 20 * 60 && it.start < nowSec + 24 * 3600 }
+                // Pro Titel nur die nächste Ausstrahlung
+                val byTitle = window.sortedBy { it.start }.groupBy { normName(it.title) }
+                val shows = byTitle.values.map { list ->
+                    val e = list.first()
+                    val type = Epg.typeOf(e)
+                    val kind = Epg.kindOf(e)
+                    val overview = listOf(e.subTitle, e.desc).filter { it.isNotBlank() }.joinToString(" – ")
+                    TvShow(
+                        CatalogItem(0, type, e.title, "", e.icon, overview, 0.0, listOf(kind)),
+                        e.channel, e.public, kind, e.start, list.size,
+                    )
+                }
+                tvToday.value = TvState(items = rankToday(shows), loading = true)
+                // Die besten Treffer mit Postern, Genres & Trailern aus der Filmdatenbank anreichern
+                val top = tvToday.value.items.take(30)
+                val enriched = HashMap<String, TvShow>()
+                for (r in top) {
+                    val s = r.show
+                    val hit = runCatching { TitleLookup.find(s.item.title) }.getOrNull() ?: continue
+                    if (hit.type != s.item.type && s.item.type == "movie" && hit.type == "tv") continue
+                    enriched[s.item.key] = s.copy(
+                        item = hit.copy(
+                            poster = hit.poster ?: s.item.poster,
+                            overview = s.item.overview.ifBlank { hit.overview },
+                            genres = (hit.genres + s.kind).distinct(),
+                        )
+                    )
+                }
+                tvToday.value = TvState(items = rankToday(shows.map { enriched[it.item.key] ?: it }))
+            } catch (e: Exception) {
+                tvToday.value = TvState(error = e.localizedMessage ?: "Programmführer konnte nicht geladen werden")
+            }
+        }
+    }
+
+    private fun rankToday(shows: List<TvShow>): List<TvRec> {
+        val (taste, example) = tasteOfBoth()
+        val u = uid.value
+        val p = household.value?.partnerOf(u)
+        val lib = titles.value.associateBy { normName(it.title) }
+        val maxTaste = taste.values.maxOrNull()?.coerceAtLeast(1.0) ?: 1.0
+        val zone = java.time.ZoneId.of("Europe/Berlin")
+        fun tasteFor(g: String): Double = taste[g] ?: taste.entries
+            .filter { it.key.length >= 4 && g.length >= 4 && (it.key.contains(g, true) || g.contains(it.key, true)) }
+            .sumOf { it.value }
+        return shows.map { s ->
+            val known = lib[normName(s.item.title)]
+            val best = listOfNotNull(known?.rating(u), known?.rating(p)).maxOrNull()
+            val genres = s.item.genres.distinct()
+            val genreScore = genres.sumOf { tasteFor(it) / maxTaste }
+            val topGenre = genres.filter { tasteFor(it) > 0 }.maxByOrNull { tasteFor(it) }
+            val time = java.time.Instant.ofEpochSecond(s.nextAir).atZone(zone).toLocalTime()
+            val prime = time >= java.time.LocalTime.of(19, 30) && time <= java.time.LocalTime.of(22, 30)
+            var score = genreScore * 3 + (if (prime) 2.0 else 0.0) + (if (s.item.type == "movie") 1.0 else 0.0) +
+                (if (s.item.poster != null) 0.5 else 0.0)
+            val reason = when {
+                best != null && best >= 7 -> { score += 10; "Habt ihr mit $best/10 bewertet – läuft heute wieder" }
+                best != null && best <= 4 -> { score -= 10; "Fandet ihr nicht so gut" }
+                known?.isRejected(p) == true -> { score -= 8; "Nicht ganz euer Fall" }
+                topGenre != null -> "Ihr mögt $topGenre" + (example[topGenre]?.let { " – wie „$it“" } ?: "")
+                prime -> "Läuft heute zur besten Sendezeit"
+                else -> "Läuft heute"
+            }
+            score += dayJitter(s.item.title) * 2.5
+            TvRec(s, score, reason)
+        }.sortedByDescending { it.score }.let { diversify(it) { r -> r.show.kind } }
     }
 
     /** Zufallswert 0..1, der pro Titel und Tag gleich bleibt (ändert sich jeden Tag). */

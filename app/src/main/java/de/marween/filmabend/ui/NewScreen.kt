@@ -110,6 +110,7 @@ fun NewScreen(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
             vm.mtFilms.collectAsStateWithLifecycle().value.loading,
             vm.mtSeries.collectAsStateWithLifecycle().value.loading,
             vm.tv.collectAsStateWithLifecycle().value.loading,
+            vm.tvToday.collectAsStateWithLifecycle().value.loading,
         ).any { it }
         androidx.compose.material3.OutlinedButton(
             onClick = { vm.refreshAll() }, enabled = !anyLoading,
@@ -123,19 +124,24 @@ fun NewScreen(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
             TvList(vm, openDetail)
         } else if (type == 6) {
             val tvState by vm.tv.collectAsStateWithLifecycle()
+            val today by vm.tvToday.collectAsStateWithLifecycle()
+            LaunchedEffect(Unit) { vm.loadTvToday() }
             androidx.compose.foundation.layout.Column(Modifier.fillMaxSize().verticalScroll(androidx.compose.foundation.rememberScrollState())) {
                 Text(
-                    "Jeden Tag eine Sendung aus allen öffentlich-rechtlichen und privaten Sendern – ausgesucht nach dem, was ihr gut bewertet habt. Passt sie nicht? Tippt auf „Anderer Tipp“ oder wählt unten eine Alternative.",
+                    "Was heute im Fernsehen läuft – aus dem Programm von ARD, ZDF, den Dritten, RTL, SAT.1, ProSieben, VOX & Co., ausgesucht nach dem, was ihr gut bewertet habt. Passt sie nicht? Tippt auf „Anderer Tipp“ oder wählt unten eine Alternative.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
                 )
                 when {
-                    tvState.loading && tvState.items.isEmpty() -> Loading("Alle Sender werden durchsucht …")
-                    tvState.error != null -> EmptyHint("Kein Tipp heute", tvState.error ?: "", pose = TiwiPose.Surprised) {
-                        TextButton(onClick = { vm.loadTv(force = true) }) { Text("Nochmal versuchen") }
+                    today.items.isNotEmpty() -> DailyPickCard(vm, openDetail)
+                    today.error == null -> Loading("Heutiges TV-Programm wird durchsucht …")
+                    // Programmführer nicht erreichbar: auf die bisherigen Sendungs-Tipps ausweichen
+                    tvState.items.isNotEmpty() -> DailyPickCard(vm, openDetail)
+                    tvState.loading -> Loading("Alle Sender werden durchsucht …")
+                    else -> EmptyHint("Kein Tipp heute", today.error ?: "", pose = TiwiPose.Surprised) {
+                        TextButton(onClick = { vm.loadTvToday(force = true); vm.loadTv(force = true) }) { Text("Nochmal versuchen") }
                     }
-                    else -> DailyPickCard(vm, openDetail)
                 }
             }
         } else if (type == 5) {
