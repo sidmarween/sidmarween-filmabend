@@ -208,18 +208,29 @@ fun airLabel(sec: Long): String {
     }
 }
 
-/** Bild einer Sendung findet sich, wenn nötig, nach; sonst eine Kachel mit Sender & Art. */
+/**
+ * Bild einer Sendung: probiert nacheinander alle Quellen und nimmt nur ein Bild,
+ * das sich auch wirklich laden lässt. Klappt keins, gibt's null (→ Sender-Kachel).
+ */
 @Composable
 fun rememberTvPoster(s: de.marween.filmabend.TvShow): String? {
-    var poster by remember(s.item.key) { mutableStateOf(s.item.poster) }
-    LaunchedEffect(s.item.key) {
-        if (poster == null) poster = runCatching {
-            de.marween.filmabend.TitleLookup.findLoose(s.item.title)?.poster
-                ?: de.marween.filmabend.PosterFinder.find(s.item.title, s.item.type)
-                ?: s.item.title.split(" – ", " - ", ": ", " | ").first().trim()
-                    .takeIf { it.length >= 3 && it != s.item.title.trim() }
-                    ?.let { de.marween.filmabend.PosterFinder.find(it, s.item.type) }
-        }.getOrNull()
+    val ctx = LocalContext.current
+    var poster by remember(s.item.key, s.item.poster) { mutableStateOf<String?>(null) }
+    LaunchedEffect(s.item.key, s.item.poster) {
+        suspend fun ok(u: String?): String? {
+            if (u.isNullOrBlank()) return null
+            val url = u.replace("http://", "https://")
+            val r = runCatching {
+                coil.Coil.imageLoader(ctx).execute(coil.request.ImageRequest.Builder(ctx).data(url).size(300).build())
+            }.getOrNull()
+            return if (r is coil.request.SuccessResult) url else null
+        }
+        val title = s.item.title
+        val main = title.split(" – ", " - ", ": ", " | ").first().trim().takeIf { it.length >= 3 && it != title.trim() }
+        poster = ok(s.item.poster)
+            ?: ok(runCatching { de.marween.filmabend.TitleLookup.findLoose(title)?.poster }.getOrNull())
+            ?: ok(runCatching { de.marween.filmabend.PosterFinder.find(title, s.item.type) }.getOrNull())
+            ?: main?.let { ok(runCatching { de.marween.filmabend.PosterFinder.find(it, s.item.type) }.getOrNull()) }
     }
     return poster
 }

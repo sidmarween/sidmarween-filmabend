@@ -341,9 +341,7 @@ private fun TvList(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
                     val start = airLabel(s.nextAir)
                     val end = if (s.endAir > 0) "–" + hm.format(java.time.Instant.ofEpochSecond(s.endAir).atZone(zone)) else ""
                     val running = s.nextAir <= nowSec && s.endAir > nowSec
-                    val poster = rememberTvPoster(s)
                     val item = s.item.copy(
-                        poster = poster,
                         extra = (if (running) "🔴 Läuft gerade · " else "📺 ") + "$start$end · ${s.network}\n${s.kind}" + (if (r.reason.isNotBlank()) " · ${r.reason}" else ""),
                     )
                     NewCard(
@@ -351,7 +349,8 @@ private fun TvList(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
                         onOpen = { if (item.resolved) openDetail(item.type, item.id) else vm.withTitle(item.title) { openDetail(it.type, it.id) } },
                         onTrailer = {
                             openUrl(ctx, item.ytUrl ?: Trailers.match(vm.trailers.value.items, item.title)?.url ?: Catalog.youtubeTrailer(item.title))
-                        }
+                        },
+                        tv = s
                     )
                 }
             }
@@ -559,7 +558,7 @@ private fun MediathekCard(vm: AppViewModel, m: MediathekItem, onPlay: (String, S
 }
 
 @Composable
-private fun NewCard(vm: AppViewModel, item: CatalogItem, onOpen: () -> Unit, onTrailer: () -> Unit) {
+private fun NewCard(vm: AppViewModel, item: CatalogItem, onOpen: () -> Unit, onTrailer: () -> Unit, tv: de.marween.filmabend.TvShow? = null) {
     val uid by vm.uid.collectAsStateWithLifecycle()
     val hh by vm.household.collectAsStateWithLifecycle()
     val titles by vm.titles.collectAsStateWithLifecycle()
@@ -571,7 +570,8 @@ private fun NewCard(vm: AppViewModel, item: CatalogItem, onOpen: () -> Unit, onT
 
     Card(colors = CardDefaults.cardColors(containerColor = CardBg), modifier = Modifier.fillMaxWidth().clickable(onClick = onOpen)) {
         Row(Modifier.padding(12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Poster(item.poster, item.type, Modifier.width(92.dp), corner = 8.dp)
+            if (tv != null) TvPoster(tv, Modifier.width(92.dp), corner = 8.dp)
+            else Poster(item.poster, item.type, Modifier.width(92.dp), corner = 8.dp)
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 Text(item.title, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 if (item.extra.isNotBlank()) Text(item.extra, style = MaterialTheme.typography.labelMedium, color = Gold)
