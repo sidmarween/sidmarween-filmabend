@@ -16,6 +16,9 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.ThumbDownOffAlt
 import androidx.compose.foundation.border
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilledTonalButton
@@ -79,6 +82,8 @@ fun DailyPickCard(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
     val pick = candidates[idx]
     val s = pick.show
     val item = s.item
+    var showInfo by remember(item.key) { mutableStateOf(false) }
+    if (showInfo) EpgInfoDialog(vm, pick, openDetail) { showInfo = false }
 
     var fact by remember(item.key) { mutableStateOf<String?>(null) }
     var factLoaded by remember(item.key) { mutableStateOf(false) }
@@ -99,7 +104,7 @@ fun DailyPickCard(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
     Card(
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
         modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp).clickable {
-            if (item.resolved) openDetail(item.type, item.id) else vm.withTitle(item.title) { openDetail(it.type, it.id) }
+            showInfo = true
         }
     ) {
         Column(
@@ -146,7 +151,7 @@ fun DailyPickCard(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
                     onClick = { openUrl(ctx, item.ytUrl ?: Trailers.match(vm.trailers.value.items, item.title)?.url ?: Catalog.youtubeTrailer(item.title)) },
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
                 ) { Icon(Icons.Filled.PlayArrow, null); Text("Trailer") }
-                TextButton(onClick = { if (item.resolved) openDetail(item.type, item.id) else vm.withTitle(item.title) { openDetail(it.type, it.id) } }) { Text("Details") }
+                TextButton(onClick = { showInfo = true }) { Text("Mehr lesen") }
                 androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
                 TextButton(onClick = { if (item.resolved) vm.setRejected(item.info, true) else vm.withResolved(item) { vm.setRejected(it.info, true) } }) {
                     Icon(Icons.Filled.ThumbDownOffAlt, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -255,6 +260,61 @@ fun TvPoster(s: de.marween.filmabend.TvShow, modifier: Modifier = Modifier, corn
                 s.network.substringBefore(" · "), style = MaterialTheme.typography.labelMedium, color = Gold,
                 fontWeight = FontWeight.Bold, maxLines = 2, textAlign = androidx.compose.ui.text.style.TextAlign.Center
             )
+        }
+    }
+}
+
+/**
+ * Alle Infos zu einer TV-Sendung aus dem Programmführer – kompletter Beschreibungstext,
+ * Sendezeit, Sender. „Mehr zur Sendung“ öffnet die Detailseite, falls es dazu eine gibt.
+ */
+@Composable
+fun EpgInfoDialog(vm: AppViewModel, r: de.marween.filmabend.TvRec, openDetail: (String, Int) -> Unit, onClose: () -> Unit) {
+    val s = r.show
+    val item = s.item
+    val ctx = LocalContext.current
+    val zone = java.time.ZoneId.of("Europe/Berlin")
+    val end = if (s.endAir > 0) "–" + java.time.format.DateTimeFormatter.ofPattern("HH:mm").format(java.time.Instant.ofEpochSecond(s.endAir).atZone(zone)) else ""
+    var searching by remember { mutableStateOf(false) }
+    androidx.compose.ui.window.Dialog(onDismissRequest = onClose) {
+        Column(
+            Modifier.fillMaxWidth().background(Color(0xFF1E1830), RoundedCornerShape(20.dp)).padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                TvPoster(s, Modifier.width(90.dp), corner = 8.dp)
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text(item.title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Color.White)
+                    if (s.nextAir > 0) Text("📺 " + airLabel(s.nextAir) + end + " · " + s.network, style = MaterialTheme.typography.labelLarge, color = Gold)
+                    Text(listOf(s.kind, r.reason).filter { it.isNotBlank() }.joinToString(" · "), style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.75f))
+                }
+            }
+            Column(Modifier.fillMaxWidth().heightIn(max = 340.dp).verticalScroll(rememberScrollState())) {
+                Text(
+                    item.overview.ifBlank { "Zu dieser Sendung gibt es im Programmführer keine Beschreibung." },
+                    style = MaterialTheme.typography.bodyLarge, color = Color.White
+                )
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                FilledTonalButton(
+                    onClick = { openUrl(ctx, item.ytUrl ?: Trailers.match(vm.trailers.value.items, item.title)?.url ?: Catalog.youtubeTrailer(item.title)) },
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                ) { Icon(Icons.Filled.PlayArrow, null); Text("Trailer") }
+                TextButton(enabled = !searching, onClick = {
+                    if (item.resolved && item.id > 0) { onClose(); openDetail(item.type, item.id) }
+                    else {
+                        searching = true
+                        vm.withTitle(item.title) {
+                            searching = false
+                            if (it.id > 0) { onClose(); openDetail(it.type, it.id) }
+                            else vm.message.value = "Zu „${item.title}“ gibt es keine weiteren Infos – alles steht hier im Programmtext."
+                        }
+                    }
+                }) { Text(if (searching) "Sucht …" else "Mehr zur Sendung") }
+                androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
+                TextButton(onClick = onClose) { Text("Schließen", color = Color.White) }
+            }
+            PartnerButtons(vm, item.title, item.key, { cb -> cb(item.info) })
         }
     }
 }

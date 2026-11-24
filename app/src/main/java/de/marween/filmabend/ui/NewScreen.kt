@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -93,15 +94,7 @@ fun NewScreen(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
 
     var query by rememberSaveable { mutableStateOf("") }
     Column(Modifier.fillMaxSize()) {
-        androidx.compose.material3.OutlinedTextField(
-            value = query, onValueChange = { query = it },
-            placeholder = { Text("In „Neu“ suchen – Titel, Sender, Genre …") },
-            leadingIcon = { Icon(Icons.Filled.Search, null) },
-            trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Icon(Icons.Filled.Close, "Leeren") } },
-            singleLine = true,
-            shape = androidx.compose.foundation.shape.RoundedCornerShape(50),
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp)
-        )
+        CompactSearch(query, { query = it }, "Titel, Sender, Genre suchen …")
         androidx.compose.runtime.CompositionLocalProvider(LocalNewQuery provides query.trim()) {
         ChipRow(listOf("⭐ Tipp des Tages", "Neue Filme", "Neue Serien", "Trailer", "Mediatheken", "DVD & Blu-ray", "📺 Heute im TV"), chip, { chip = it })
         val anyLoading = listOf(
@@ -113,13 +106,10 @@ fun NewScreen(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
             vm.tv.collectAsStateWithLifecycle().value.loading,
             vm.tvToday.collectAsStateWithLifecycle().value.loading,
         ).any { it }
-        androidx.compose.material3.OutlinedButton(
-            onClick = { vm.refreshAll() }, enabled = !anyLoading,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
-        ) {
-            Icon(Icons.Filled.Refresh, null)
-            Text(if (anyLoading) "  Wird aktualisiert …" else "  Alles aktualisieren (neueste Trailer & Neuheiten)")
-        }
+        // Aktualisieren geht über ↻ oben rechts – hier nur ein schmaler Ladebalken
+        if (anyLoading) androidx.compose.material3.LinearProgressIndicator(
+            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp).height(2.dp)
+        )
         if (type == 6 && query.isNotBlank()) {
             // Beim Suchen im Tipp des Tages: alle Sendungen durchsuchen
             TvList(vm, openDetail)
@@ -194,6 +184,29 @@ fun NewScreen(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
     }
 
     playing?.let { (title, url) -> TrailerDialog(title, url) { playing = null } }
+}
+
+/** Schmales Suchfeld (eine Zeile, wenig Platz) */
+@Composable
+private fun CompactSearch(value: String, onChange: (String) -> Unit, hint: String) {
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 2.dp).height(40.dp)
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f), androidx.compose.foundation.shape.RoundedCornerShape(50))
+            .padding(horizontal = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(Icons.Filled.Search, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Box(Modifier.weight(1f).padding(horizontal = 8.dp), contentAlignment = Alignment.CenterStart) {
+            if (value.isEmpty()) Text(hint, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+            androidx.compose.foundation.text.BasicTextField(
+                value, onChange, singleLine = true,
+                textStyle = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurface),
+                cursorBrush = androidx.compose.ui.graphics.SolidColor(Gold),
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+        if (value.isNotEmpty()) Icon(Icons.Filled.Close, "Leeren", Modifier.size(20.dp).clickable { onChange("") }, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
 }
 
 /** Suchbegriff aus dem Suchfeld unter „Neu“ – gilt für den jeweils offenen Bereich. */
@@ -292,6 +305,8 @@ private fun TvList(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
     val q = LocalNewQuery.current
     val seen = rememberSeen(vm)
     val state by vm.tvGuide.collectAsStateWithLifecycle()
+    var info by androidx.compose.runtime.remember { mutableStateOf<de.marween.filmabend.TvRec?>(null) }
+    info?.let { r -> EpgInfoDialog(vm, r, openDetail) { info = null } }
     var time by rememberSaveable { mutableIntStateOf(1) }
     var which by rememberSaveable { mutableIntStateOf(0) }
     var kind by rememberSaveable { mutableIntStateOf(0) }
@@ -346,7 +361,7 @@ private fun TvList(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
                     )
                     NewCard(
                         vm, item,
-                        onOpen = { if (item.resolved) openDetail(item.type, item.id) else vm.withTitle(item.title) { openDetail(it.type, it.id) } },
+                        onOpen = { info = r },
                         onTrailer = {
                             openUrl(ctx, item.ytUrl ?: Trailers.match(vm.trailers.value.items, item.title)?.url ?: Catalog.youtubeTrailer(item.title))
                         },
