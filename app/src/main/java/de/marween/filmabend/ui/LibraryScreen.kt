@@ -47,7 +47,7 @@ fun LibraryScreen(vm: AppViewModel, openDetail: (String, Int) -> Unit, openSearc
 
     val list = titles.filter { typeMatches(type, it.type) }.let { all ->
         when (who) {
-            0 -> all.filter { it.together && !(it.isWatched(uid) && it.isWatched(partner)) }.sortedByDescending { it.addedAt }
+            0 -> all.filter { it.together && !it.isWatched(uid) && !it.isWatched(partner) } // gesehen = raus aus „Zusammen gucken“.sortedByDescending { it.addedAt }
             1 -> all.filter { it.isWatched(uid) }.sortedByDescending { it.watchedAt[uid] ?: 0L }
             2 -> all.filter { it.isWatched(partner) }.sortedByDescending { it.watchedAt[partner] ?: 0L }
             3 -> all.filter { it.isWatched(uid) && it.isWatched(partner) }

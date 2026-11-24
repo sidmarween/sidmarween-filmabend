@@ -45,6 +45,7 @@ import de.marween.filmabend.BuildConfig
 /** Änderungsliste – bei jeder neuen Version oben ergänzen. */
 private val changelog = listOf(
     "1.1" to listOf(
+        "„Zusammen gucken“: Titel verschwinden, sobald einer von euch sie als gesehen abhakt",
         "Bereich „Entdecken“ entfernt – euer Geschmack wirkt weiter bei den Vorschlägen unter „Neu“",
         "Neu: 👎 „Nicht mein Fall“ überall unter „Neu“ (auch Mediatheken & DVD) – abgelehnte Titel kommen nicht wieder und fließen ins Geschmacksprofil",
         "Unter „Neu“ werden Titel, die schon auf eurer gemeinsamen Liste stehen, nicht mehr vorgeschlagen",
