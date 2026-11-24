@@ -84,7 +84,8 @@ fun NewScreen(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
         when (type) {
             3 -> vm.loadMediathek(series = mtType == 1)
             4 -> vm.loadDiscs()
-            5, 6 -> vm.loadTv()
+            5 -> vm.loadTvToday()
+            6 -> vm.loadTv()
             2 -> {}
             0, 1 -> vm.loadNew(t)
         }
@@ -102,7 +103,7 @@ fun NewScreen(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
             modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp)
         )
         androidx.compose.runtime.CompositionLocalProvider(LocalNewQuery provides query.trim()) {
-        ChipRow(listOf("⭐ Tipp des Tages", "Neue Filme", "Neue Serien", "Trailer", "Mediatheken", "DVD & Blu-ray", "📺 TV-Sendungen"), chip, { chip = it })
+        ChipRow(listOf("⭐ Tipp des Tages", "Neue Filme", "Neue Serien", "Trailer", "Mediatheken", "DVD & Blu-ray", "📺 Heute im TV"), chip, { chip = it })
         val anyLoading = listOf(
             vm.trailers.collectAsStateWithLifecycle().value.loading,
             movies.loading, shows.loading,
@@ -290,45 +291,64 @@ private fun TrailerList(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
 private fun TvList(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
     val q = LocalNewQuery.current
     val seen = rememberSeen(vm)
-    val state by vm.tv.collectAsStateWithLifecycle()
+    val state by vm.tvGuide.collectAsStateWithLifecycle()
+    var time by rememberSaveable { mutableIntStateOf(1) }
     var which by rememberSaveable { mutableIntStateOf(0) }
     var kind by rememberSaveable { mutableIntStateOf(0) }
     val ctx = LocalContext.current
+    val zone = java.time.ZoneId.of("Europe/Berlin")
+    val nowSec = System.currentTimeMillis() / 1000
+    val today = java.time.LocalDate.now(zone)
+    fun at(d: java.time.LocalDate, h: Int, m: Int = 0) = d.atTime(h, m).atZone(zone).toEpochSecond()
+    val times = listOf("⭐ Für euch", "Läuft jetzt", "Heute 20:15", "Heute Abend", "Morgen")
+    val byTime = when (time) {
+        0 -> state.items.filter { it.show.nextAir < at(today.plusDays(1), 3) }.sortedByDescending { it.score }.distinctBy { normName(it.show.item.title) }
+        1 -> state.items.filter { it.show.nextAir <= nowSec && it.show.endAir > nowSec }.sortedByDescending { it.score }
+        2 -> state.items.filter { it.show.nextAir in at(today, 19, 55)..at(today, 20, 45) }.sortedByDescending { it.score }
+        3 -> state.items.filter { it.show.nextAir in maxOf(nowSec - 600, at(today, 18))..at(today.plusDays(1), 3) }
+        else -> state.items.filter { it.show.nextAir in at(today.plusDays(1), 5)..at(today.plusDays(2), 3) }
+    }
     val byNet = when (which) {
-        1 -> state.items.filter { it.show.public }
-        2 -> state.items.filter { !it.show.public }
-        else -> state.items
+        1 -> byTime.filter { it.show.public }
+        2 -> byTime.filter { !it.show.public }
+        else -> byTime
     }
     val kinds = listOf("Alle Arten") + byNet.groupingBy { it.show.kind }.eachCount().entries.sortedByDescending { it.value }.take(10).map { it.key }
     val shown = if (kind == 0 || kind >= kinds.size) byNet else byNet.filter { it.show.kind == kinds[kind] }
-    val fmt = java.text.SimpleDateFormat("EE dd.MM. HH:mm", java.util.Locale.GERMANY)
+    val hm = java.time.format.DateTimeFormatter.ofPattern("HH:mm")
 
     Text(
-        "${state.items.size} Sendungen & Serien von ARD, ZDF, arte, 3sat, RTL+, Joyn (ProSieben/Sat.1), DMAX, TELE 5, ServusTV & mehr – sortiert nach eurem Geschmack.",
+        "Das aktuelle TV-Programm von ARD, ZDF, den Dritten, arte, 3sat, RTL, SAT.1, ProSieben, VOX, kabel eins & Co.",
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
     )
     when {
-        state.loading && state.items.isEmpty() -> Loading("Alle Sender werden durchsucht …")
-        state.error != null -> EmptyHint("Kein Programm", state.error ?: "", pose = TiwiPose.Surprised) {
-            TextButton(onClick = { vm.loadTv(force = true) }) { Text("Nochmal versuchen") }
+        state.items.isEmpty() && state.error == null -> Loading("Heutiges TV-Programm wird geladen …")
+        state.items.isEmpty() -> EmptyHint("Kein Programm", state.error ?: "", pose = TiwiPose.Surprised) {
+            TextButton(onClick = { vm.loadTvToday(force = true) }) { Text("Nochmal versuchen") }
         }
         else -> {
-            ChipRow(listOf("Alle Sender", "Öffentlich-rechtlich", "Privat"), which, { which = it; kind = 0 })
+            ChipRow(times, time, { time = it; kind = 0 })
+            ChipRow(listOf("Alle Sender", "Öffentlich-rechtlich", "Privat"), which, { which = it; kind = 0 }, Modifier.padding(top = 2.dp))
             if (kinds.size > 2) ChipRow(kinds, kind, { kind = it }, Modifier.padding(top = 2.dp))
+            val list = shown.filterNot { seen(it.show.item.key, it.show.item.title) }
+                .filter { hit(q, it.show.item.title, it.show.network, it.show.kind, it.show.item.genres.joinToString(), it.show.item.overview) }
+            if (list.isEmpty()) EmptyHint("Nichts gefunden", "Probier eine andere Uhrzeit oder einen anderen Filter.", pose = TiwiPose.Sleeping)
             LazyColumn(contentPadding = PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                items(shown.filterNot { seen(it.show.item.key, it.show.item.title) }.filter { hit(q, it.show.item.title, it.show.network, it.show.kind, it.show.item.genres.joinToString(), it.show.item.overview) }.take(500), key = { it.show.item.key }) { r ->
+                items(list.take(400), key = { it.show.network + it.show.nextAir + it.show.item.title }) { r ->
                     val s = r.show
-                    val whenTxt = if (s.nextAir > 0) "📺 ${fmt.format(java.util.Date(s.nextAir * 1000))} · " else "▶ Abrufbar bei "
+                    val start = airLabel(s.nextAir)
+                    val end = if (s.endAir > 0) "–" + hm.format(java.time.Instant.ofEpochSecond(s.endAir).atZone(zone)) else ""
+                    val running = s.nextAir <= nowSec && s.endAir > nowSec
                     val item = s.item.copy(
-                        extra = "$whenTxt${s.network}\n${s.kind} · ${r.reason}",
+                        extra = (if (running) "🔴 Läuft gerade · " else "📺 ") + "$start$end · ${s.network}\n${s.kind}" + (if (r.reason.isNotBlank()) " · ${r.reason}" else ""),
                     )
                     NewCard(
                         vm, item,
-                        onOpen = { openDetail(item.type, item.id) },
+                        onOpen = { if (item.resolved) openDetail(item.type, item.id) else vm.withTitle(item.title) { openDetail(it.type, it.id) } },
                         onTrailer = {
-                            openUrl(ctx, Trailers.match(vm.trailers.value.items, item.title)?.url ?: Catalog.youtubeTrailer(item.title))
+                            openUrl(ctx, item.ytUrl ?: Trailers.match(vm.trailers.value.items, item.title)?.url ?: Catalog.youtubeTrailer(item.title))
                         }
                     )
                 }

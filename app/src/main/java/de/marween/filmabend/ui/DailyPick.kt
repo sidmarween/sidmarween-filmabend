@@ -195,7 +195,7 @@ fun DailyPickCard(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
 }
 
 /** „Heute 20:15“, „Morgen 00:30“ oder „Do 20:15“ */
-private fun airLabel(sec: Long): String {
+fun airLabel(sec: Long): String {
     val zone = java.time.ZoneId.of("Europe/Berlin")
     val dt = java.time.Instant.ofEpochSecond(sec).atZone(zone)
     val today = java.time.LocalDate.now(zone)

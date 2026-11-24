@@ -82,6 +82,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val tv = MutableStateFlow(TvState())
     /** Tipp des Tages: was heute laut Programmführer (EPG) im Fernsehen läuft */
     val tvToday = MutableStateFlow(TvState())
+    /** „Heute im TV“: jede Ausstrahlung der nächsten 36 Stunden (EPG), nach Uhrzeit */
+    val tvGuide = MutableStateFlow(TvState())
     val mtSeries = MutableStateFlow(MtState())
 
     private var userReg: ListenerRegistration? = null
@@ -646,6 +648,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun loadTvToday(force: Boolean = false) {
         if (!force && (tvToday.value.loading || tvToday.value.items.isNotEmpty())) return
         tvToday.value = tvToday.value.copy(loading = true, error = null)
+        tvGuide.value = tvGuide.value.copy(loading = true, error = null)
         viewModelScope.launch {
             try {
                 val all = Epg.load(getApplication<Application>().cacheDir, force).filter { Epg.worthIt(it) }
@@ -667,6 +670,28 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     )
                 }
                 tvToday.value = TvState(items = rankToday(shows), loading = true)
+
+                // Komplettes Programm (jede Ausstrahlung) für „Heute im TV“
+                val airings = all.filter { it.stop > nowSec && it.start < nowSec + 36 * 3600 }.sortedBy { it.start }
+                val allShows = airings.groupBy { normName(it.title) }.values.map { list ->
+                    val e = list.first(); val kind = Epg.kindOf(e)
+                    TvShow(
+                        CatalogItem(0, Epg.typeOf(e), e.title, "", e.icon, listOf(e.subTitle, e.desc).filter { it.isNotBlank() }.joinToString(" – "), 0.0, listOf(kind)),
+                        e.channel, e.public, kind, e.start, list.size,
+                    )
+                }
+                fun guide(enriched: Map<String, TvShow>): List<TvRec> {
+                    val rank = rankToday(allShows.map { enriched[it.item.key] ?: it }).associateBy { normName(it.show.item.title) }
+                    return airings.map { e ->
+                        val r = rank[normName(e.title)]
+                        val kind = Epg.kindOf(e)
+                        val desc = listOf(e.subTitle, e.desc).filter { it.isNotBlank() }.joinToString(" – ")
+                        val item = r?.show?.item?.copy(overview = desc.ifBlank { r.show.item.overview })
+                            ?: CatalogItem(0, Epg.typeOf(e), e.title, "", e.icon, desc, 0.0, listOf(kind))
+                        TvRec(TvShow(item, e.channel, e.public, kind, e.start, 1, e.stop), r?.score ?: 0.0, r?.reason ?: "")
+                    }
+                }
+                tvGuide.value = TvState(items = guide(emptyMap()), loading = true)
                 // Die besten Treffer mit Postern, Genres & Trailern aus der Filmdatenbank anreichern
                 val top = tvToday.value.items.take(30)
                 val enriched = HashMap<String, TvShow>()
@@ -683,8 +708,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     )
                 }
                 tvToday.value = TvState(items = rankToday(shows.map { enriched[it.item.key] ?: it }))
+                tvGuide.value = TvState(items = guide(enriched))
             } catch (e: Exception) {
                 tvToday.value = TvState(error = e.localizedMessage ?: "Programmführer konnte nicht geladen werden")
+                tvGuide.value = TvState(error = tvToday.value.error)
             }
         }
     }

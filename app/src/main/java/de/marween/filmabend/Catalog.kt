@@ -834,6 +834,7 @@ data class TvShow(
     val kind: String,        // Show, Reality-TV, Doku, Serie, Talk …
     val nextAir: Long,       // Sekunden
     val airings: Int,
+    val endAir: Long = 0,    // Sekunden (nur EPG)
 )
 
 /** Fernsehprogramm der nächsten Tage (TVmaze, Land DE) – zu Sendungen gruppiert. */
