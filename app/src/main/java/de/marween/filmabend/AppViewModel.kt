@@ -327,9 +327,34 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** Von einer Webseite / aus Text geteilt – öffnet den Import unter „Sammlungen“. */
+    val sharedImport = MutableStateFlow<String?>(null)
+
+    /** Sammlung aus einer eingelesenen Liste (Webseite oder Text) anlegen – Reihenfolge bleibt erhalten. */
+    fun createImportedCollection(name: String, items: List<CollItem>, done: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val ref = hhRef() ?: throw IllegalStateException("Keine gemeinsame Liste")
+                // Reihenfolge der Liste merken (date = Position, falls kein Datum)
+                val ordered = items.mapIndexed { i, it -> it.copy(date = "%04d".format(i)) }
+                ref.collection("collections").add(mapOf(
+                    "name" to name.ifBlank { "Meine Liste" }, "source" to "",
+                    "items" to ordered.map { it.toMap() }, "createdAt" to System.currentTimeMillis(), "by" to uid.value,
+                    "role" to "", "version" to 2,
+                )).await()
+                message.value = "Sammlung „$name“ mit ${items.size} Filmen angelegt"
+                done(true)
+            } catch (e: Exception) {
+                message.value = "Sammlung konnte nicht angelegt werden: ${e.localizedMessage}"
+                done(false)
+            }
+        }
+    }
+
     /** Filmliste neu von Wikidata holen (neue Filme kommen dazu, Abgehakte bleiben). */
     fun refreshCollection(c: Coll, quiet: Boolean = false) = run {
         val ref = hhRef() ?: return@run
+        if (c.source.isBlank()) return@run   // eingelesene Liste: nichts nachzuladen
         val keys = c.items.associate { it.wd to it.key }
         val removed = c.items.filter { it.key == "-" }.map { it.wd }.toSet()
         val res = Wikidata.collection(c.source)

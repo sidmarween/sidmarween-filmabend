@@ -45,6 +45,7 @@ import de.marween.filmabend.BuildConfig
 /** Änderungsliste – bei jeder neuen Version oben ergänzen. */
 private val changelog = listOf(
     "1.1" to listOf(
+        "Neu: Filmlisten von Webseiten oder als Text als Sammlung einlesen (auch über „Teilen“ im Browser)",
         "Schneller: große Listen und Sammlungen blockieren die App nicht mehr",
         "Sammlungen: Abschnitte nach Darsteller der Hauptfigur (z. B. Bond-Darsteller), Regie und Besonderheiten je Film",
         "Neu: Sammlungen – zu einem Stichwort (James Bond, Disney …) alle Filme chronologisch abhaken",

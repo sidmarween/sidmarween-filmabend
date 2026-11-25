@@ -184,3 +184,94 @@ object Wikidata {
         }.distinctBy { it.wd }.sortedBy { it.date }
     }
 }
+
+/**
+ * Liest eine Filmliste aus einer Webseite (z. B. „Alle Disney-Filme in chronologischer
+ * Reihenfolge“) oder aus eingefügtem Text. Erkennt Zeilen wie
+ * „1. Schneewittchen und die sieben Zwerge (1937)“, „Bambi – 1942“ oder „1940: Pinocchio“.
+ */
+object ListImporter {
+    data class Parsed(val name: String, val items: List<CollItem>)
+
+    private val yearRx = "(?:18[89]\\d|19\\d{2}|20[0-3]\\d)"
+    private val patterns = listOf(
+        // Titel (1937)  /  Titel [1937]  /  Titel (USA, 1937)
+        Regex("^(.{2,110}?)\\s*[(\\[][^()\\[\\]]{0,30}?($yearRx)[^()\\[\\]]{0,12}[)\\]]"),
+        // 1937: Titel  /  1937 – Titel
+        Regex("^($yearRx)\\s*[:–—\\-|]\\s*(.{2,110})$"),
+        // Titel – 1937  /  Titel, 1937  /  Titel | 1937
+        Regex("^(.{2,110}?)\\s*[–—\\-,|:]\\s*($yearRx)\\b"),
+    )
+    private val numbered = Regex("^\\s*(?:#|Nr\\.?\\s*)?\\d{1,3}\\s*[.):]\\s+(.{2,110})$")
+
+    suspend fun fromUrl(url: String): Parsed = withContext(Dispatchers.IO) {
+        val c = URL(url.trim()).openConnection() as HttpURLConnection
+        c.connectTimeout = 15000; c.readTimeout = 30000
+        c.instanceFollowRedirects = true
+        c.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Mobile Safari/537.36")
+        c.setRequestProperty("Accept-Language", "de-DE,de;q=0.9")
+        val html = try {
+            if (c.responseCode !in 200..299) throw java.io.IOException("Webseite antwortet nicht (${c.responseCode})")
+            c.inputStream.bufferedReader().use { it.readText() }
+        } finally { c.disconnect() }
+        fromHtml(html)
+    }
+
+    fun fromHtml(raw: String): Parsed {
+        val title = Regex("<title[^>]*>(.*?)</title>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
+            .find(raw)?.groupValues?.get(1)?.let { text(it) }?.substringBefore(" | ")?.substringBefore(" - ")?.trim() ?: ""
+        val html = raw.replace(Regex("<(script|style|noscript|svg|nav|footer|header)[^>]*>.*?</\\1>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)), " ")
+        // Inhalt der typischen Listen-Bausteine (Überschriften, Aufzählungen, Tabellen, Absätze)
+        val blocks = Regex("<(h[1-6]|li|td|th|p|dt|dd|strong|b)\\b[^>]*>(.*?)</\\1>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
+            .findAll(html).map { text(it.groupValues[2]) }
+            .flatMap { it.split('\n').asSequence() }
+            .map { it.trim() }.filter { it.length in 2..140 }.toList()
+        return Parsed(title, parseLines(blocks, allowNoYear = false))
+    }
+
+    fun fromText(text: String): Parsed = Parsed("", parseLines(text.lines().map { it.trim() }.filter { it.isNotBlank() }, allowNoYear = true))
+
+    private fun text(htmlPart: String): String =
+        android.text.Html.fromHtml(htmlPart.replace(Regex("<br\\s*/?>", RegexOption.IGNORE_CASE), "\n"), android.text.Html.FROM_HTML_MODE_LEGACY)
+            .toString().replace(' ', ' ').replace(Regex("[ \\t]+"), " ").trim()
+
+    private fun clean(t: String): String = t
+        .replace(Regex("^\\s*(?:#|Nr\\.?\\s*)?\\d{1,3}\\s*[.):]\\s+"), "")   // Nummerierung
+        .replace(Regex("^[•·*\\-–—]\\s*"), "")
+        .trim().trim('„', '“', '"', '”', '\'', '»', '«', ':', '–', '-', ',', ' ')
+
+    private fun parseLines(lines: List<String>, allowNoYear: Boolean): List<CollItem> {
+        val out = LinkedHashMap<String, CollItem>()
+        val noYear = ArrayList<String>()
+        for (line in lines) {
+            val l = clean(line)
+            var title: String? = null; var year = ""
+            for ((i, rx) in patterns.withIndex()) {
+                val m = rx.find(l) ?: continue
+                if (i == 1) { year = m.groupValues[1]; title = m.groupValues[2] } else { title = m.groupValues[1]; year = m.groupValues[2] }
+                break
+            }
+            if (title == null) {
+                // Nummerierte Zeile ohne Jahr („12. Bambi“) – nur merken
+                numbered.find(line)?.let { noYear += clean(it.groupValues[1]) }
+                if (allowNoYear && l.length in 2..80 && !l.endsWith(".")) noYear += l
+                continue
+            }
+            val t = clean(title)
+            if (t.length < 2 || t.split(' ').size > 14) continue
+            val k = normName(t)
+            if (k.isEmpty() || out.containsKey(k)) continue
+            out[k] = CollItem("m" + k.hashCode().toUInt().toString(36), t, year, year.ifBlank { "9999" })
+        }
+        // Keine Jahreszahlen gefunden? Dann die nummerierte bzw. eingefügte Liste nehmen
+        if (out.size < 3 && noYear.size >= 3) {
+            out.clear()
+            noYear.forEachIndexed { i, t ->
+                val k = normName(t)
+                if (k.isNotEmpty() && !out.containsKey(k))
+                    out[k] = CollItem("m" + k.hashCode().toUInt().toString(36), t, "", "%04d".format(i))
+            }
+        }
+        return out.values.toList()
+    }
+}

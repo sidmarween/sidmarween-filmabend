@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.Refresh
@@ -76,6 +77,9 @@ fun CollectionsScreen(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
     val colls by vm.collections.collectAsStateWithLifecycle()
     var openId by rememberSaveable { mutableStateOf<String?>(null) }
     var creating by remember { mutableStateOf(false) }
+    var importing by remember { mutableStateOf<String?>(null) }
+    val shared by vm.sharedImport.collectAsStateWithLifecycle()
+    LaunchedEffect(shared) { shared?.let { importing = it; openId = null; vm.sharedImport.value = null } }
     val open = colls.firstOrNull { it.id == openId }
 
     if (open != null) {
@@ -83,7 +87,8 @@ fun CollectionsScreen(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
         CollectionDetail(vm, open, { openId = null }, openDetail)
         return
     }
-    if (creating) CreateCollectionDialog(vm) { creating = false }
+    if (creating) CreateCollectionDialog(vm, { creating = false; importing = "" }) { creating = false }
+    importing?.let { start -> ImportListDialog(vm, start) { importing = null } }
 
     Box(Modifier.fillMaxSize()) {
         if (colls.isEmpty()) {
@@ -91,7 +96,10 @@ fun CollectionsScreen(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
                 "Noch keine Sammlungen",
                 "Leg eine Sammlung zu einem Stichwort an – z. B. „James Bond“, „Harry Potter“ oder „Walt Disney Animation Studios“. Alle Filme stehen dann chronologisch da und ihr hakt ab, was ihr gesehen habt.",
                 pose = TiwiPose.Waving
-            ) { Button(onClick = { creating = true }) { Icon(Icons.Filled.Add, null); Text(" Sammlung anlegen") } }
+            ) {
+                Button(onClick = { creating = true }) { Icon(Icons.Filled.Add, null); Text(" Sammlung anlegen") }
+                TextButton(onClick = { importing = "" }) { Text("Liste von Webseite einlesen") }
+            }
         } else {
             val titles by vm.titles.collectAsStateWithLifecycle()
             val uid by vm.uid.collectAsStateWithLifecycle()
@@ -126,11 +134,17 @@ fun CollectionsScreen(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
                     }
                 }
             }
-            ExtendedFloatingActionButton(
-                onClick = { creating = true },
-                icon = { Icon(Icons.Filled.Add, null) }, text = { Text("Sammlung") },
-                modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp)
-            )
+            Column(Modifier.align(Alignment.BottomEnd).padding(16.dp), horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                androidx.compose.material3.SmallFloatingActionButton(onClick = { importing = "" }) {
+                    Row(Modifier.padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Filled.Link, null); Text(" Liste einlesen")
+                    }
+                }
+                ExtendedFloatingActionButton(
+                    onClick = { creating = true },
+                    icon = { Icon(Icons.Filled.Add, null) }, text = { Text("Sammlung") },
+                )
+            }
         }
     }
 }
@@ -198,7 +212,7 @@ private fun CollectionDetail(vm: AppViewModel, c: Coll, back: () -> Unit, openDe
                 IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, "Mehr") }
                 DropdownMenu(menu, { menu = false }) {
                     DropdownMenuItem({ Text(if (hideSeen) "Gesehene anzeigen" else "Gesehene ausblenden") }, { hideSeen = !hideSeen; menu = false })
-                    DropdownMenuItem({ Text("Filmliste aktualisieren") }, { vm.refreshCollection(c); menu = false }, leadingIcon = { Icon(Icons.Filled.Refresh, null) })
+                    if (c.source.isNotBlank()) DropdownMenuItem({ Text("Filmliste aktualisieren") }, { vm.refreshCollection(c); menu = false }, leadingIcon = { Icon(Icons.Filled.Refresh, null) })
                     DropdownMenuItem({ Text("Umbenennen") }, { rename = true; menu = false })
                     DropdownMenuItem({ Text("Sammlung löschen") }, { confirmDelete = true; menu = false }, leadingIcon = { Icon(Icons.Filled.Delete, null) })
                 }
@@ -295,7 +309,7 @@ private fun CollectionDetail(vm: AppViewModel, c: Coll, back: () -> Unit, openDe
 }
 
 @Composable
-private fun CreateCollectionDialog(vm: AppViewModel, onClose: () -> Unit) {
+private fun CreateCollectionDialog(vm: AppViewModel, onImport: () -> Unit, onClose: () -> Unit) {
     val scope = rememberCoroutineScope()
     var query by remember { mutableStateOf("") }
     var hits by remember { mutableStateOf<List<WdHit>>(emptyList()) }
@@ -340,7 +354,88 @@ private fun CreateCollectionDialog(vm: AppViewModel, onClose: () -> Unit) {
                 }
             }
         },
-        confirmButton = {},
+        confirmButton = { TextButton(onClick = onImport, enabled = creating == null) { Text("Liste von Webseite") } },
         dismissButton = { TextButton(onClick = onClose, enabled = creating == null) { Text("Schließen") } }
+    )
+}
+
+/**
+ * Liste einlesen: Adresse einer Webseite (z. B. die Disney-Liste von Vodafone) oder
+ * kopierten Text einfügen – die App erkennt die Filme, ihr prüft die Vorschau und legt an.
+ */
+@Composable
+private fun ImportListDialog(vm: AppViewModel, start: String, onClose: () -> Unit) {
+    val scope = rememberCoroutineScope()
+    // Geteilter Text kann Überschrift + Link enthalten → Link herausziehen
+    val startUrl = Regex("https?://\\S+").find(start)?.value
+    var input by remember { mutableStateOf(startUrl ?: start) }
+    var name by remember { mutableStateOf("") }
+    var items by remember { mutableStateOf<List<CollItem>>(emptyList()) }
+    var off by remember { mutableStateOf(setOf<String>()) }
+    var byYear by remember { mutableStateOf(false) }
+    var busy by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    fun read() {
+        if (input.isBlank()) return
+        busy = true; error = null
+        scope.launch {
+            val r = runCatching {
+                val t = input.trim()
+                if (t.startsWith("http://") || t.startsWith("https://")) de.marween.filmabend.ListImporter.fromUrl(t)
+                else de.marween.filmabend.ListImporter.fromText(t)
+            }
+            r.onSuccess {
+                items = it.items; off = emptySet()
+                if (name.isBlank()) name = it.name.take(60)
+                if (it.items.isEmpty()) error = "Auf der Seite wurde keine Filmliste erkannt. Tipp: Auf der Webseite die Liste markieren, kopieren und hier als Text einfügen."
+            }.onFailure { error = "Konnte nicht gelesen werden: ${it.localizedMessage}" }
+            busy = false
+        }
+    }
+    LaunchedEffect(Unit) { if (startUrl != null) read() }
+
+    val chosen = items.filter { it.wd !in off }.let { l -> if (byYear) l.sortedBy { it.year.ifBlank { "9999" } } else l }
+    AlertDialog(
+        onDismissRequest = { if (!busy) onClose() },
+        title = { Text("Liste einlesen") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (items.isEmpty()) {
+                    Text("Adresse einer Webseite mit einer Filmliste einfügen – oder die Liste selbst (eine Zeile pro Film, gern mit Jahr). Du kannst Webseiten auch direkt aus dem Browser über „Teilen“ → Filmabend schicken.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    OutlinedTextField(input, { input = it }, placeholder = { Text("https://… oder Liste") }, maxLines = 6, modifier = Modifier.fillMaxWidth())
+                } else {
+                    OutlinedTextField(name, { name = it }, singleLine = true, label = { Text("Name der Sammlung") }, modifier = Modifier.fillMaxWidth())
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        androidx.compose.material3.Checkbox(byYear, { byYear = it })
+                        Text("Nach Erscheinungsjahr sortieren", style = MaterialTheme.typography.bodySmall)
+                    }
+                    Text("${chosen.size} von ${items.size} Filmen ausgewählt – Haken entfernen, was nicht dazugehört:",
+                        style = MaterialTheme.typography.labelMedium, color = Gold)
+                    LazyColumn(Modifier.heightIn(max = 300.dp)) {
+                        itemsIndexed(items, key = { _, it -> it.wd }) { i, it ->
+                            Row(Modifier.fillMaxWidth().clickable { off = if (it.wd in off) off - it.wd else off + it.wd }, verticalAlignment = Alignment.CenterVertically) {
+                                androidx.compose.material3.Checkbox(it.wd !in off, { v -> off = if (v) off - it.wd else off + it.wd })
+                                Text("${i + 1}. ${it.title}" + (if (it.year.isNotBlank()) " (${it.year})" else ""), style = MaterialTheme.typography.bodySmall, maxLines = 2)
+                            }
+                        }
+                    }
+                }
+                if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
+                error?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+            }
+        },
+        confirmButton = {
+            if (items.isEmpty()) TextButton(onClick = { read() }, enabled = !busy && input.isNotBlank()) { Text("Einlesen") }
+            else TextButton(onClick = {
+                busy = true
+                vm.createImportedCollection(name.ifBlank { "Meine Liste" }, chosen) { ok -> busy = false; if (ok) onClose() }
+            }, enabled = !busy && chosen.isNotEmpty()) { Text("Sammlung anlegen") }
+        },
+        dismissButton = {
+            if (items.isNotEmpty()) TextButton(onClick = { items = emptyList(); error = null }, enabled = !busy) { Text("Zurück") }
+            else TextButton(onClick = onClose, enabled = !busy) { Text("Abbrechen") }
+        }
     )
 }
