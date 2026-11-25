@@ -310,11 +310,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             try {
                 val ref = hhRef() ?: throw IllegalStateException("Keine gemeinsame Liste")
-                val films = Wikidata.films(hit.id)
+                val res = Wikidata.collection(hit.id)
+                val films = res.items
                 if (films.isEmpty()) { message.value = "Zu „${hit.label}“ wurden keine Filme gefunden – probier einen anderen Treffer."; done(false); return@launch }
                 ref.collection("collections").add(mapOf(
                     "name" to name.ifBlank { hit.label }, "source" to hit.id,
                     "items" to films.map { it.toMap() }, "createdAt" to System.currentTimeMillis(), "by" to uid.value,
+                    "role" to res.role, "version" to 2,
                 )).await()
                 message.value = "Sammlung „${name.ifBlank { hit.label }}“ mit ${films.size} Filmen angelegt"
                 done(true)
@@ -326,14 +328,18 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** Filmliste neu von Wikidata holen (neue Filme kommen dazu, Abgehakte bleiben). */
-    fun refreshCollection(c: Coll) = run {
+    fun refreshCollection(c: Coll, quiet: Boolean = false) = run {
         val ref = hhRef() ?: return@run
         val keys = c.items.associate { it.wd to it.key }
         val removed = c.items.filter { it.key == "-" }.map { it.wd }.toSet()
-        val films = Wikidata.films(c.source).map { it.copy(key = keys[it.wd] ?: "") }
+        val res = Wikidata.collection(c.source)
+        if (res.items.isEmpty()) return@run
+        val films = res.items.map { it.copy(key = keys[it.wd] ?: "") }
             .filterNot { it.wd in removed } + c.items.filter { it.wd in removed }
-        ref.collection("collections").document(c.id).update("items", films.map { it.toMap() }).await()
-        message.value = "„${c.name}“ aktualisiert – ${films.count { it.key != "-" }} Filme"
+        ref.collection("collections").document(c.id).update(
+            mapOf("items" to films.map { it.toMap() }, "role" to res.role, "version" to 2)
+        ).await()
+        if (!quiet) message.value = "„${c.name}“ aktualisiert – ${films.count { it.key != "-" }} Filme"
     }
 
     fun deleteCollection(c: Coll) = run { hhRef()?.collection("collections")?.document(c.id)?.delete()?.await() }

@@ -112,6 +112,8 @@ fun CollectionsScreen(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
                                 Text(c.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                                 Text("${films.size} Filme · ${films.firstOrNull()?.year ?: ""}–${films.lastOrNull()?.year ?: ""}",
                                     style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                if (c.role.isNotBlank()) Text("🎭 ${c.role}: ${films.map { it.lead }.filter { it.isNotBlank() }.distinct().size} Darsteller",
+                                    style = MaterialTheme.typography.labelMedium, color = Gold)
                                 Progress("Du", mine, films.size)
                                 if (partner != null) Progress(hh?.nameOf(partner) ?: "Partner", theirs, films.size)
                                 if (next != null) Text("Als Nächstes: ${next.title} (${next.year})", style = MaterialTheme.typography.labelMedium, color = Gold, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -164,7 +166,11 @@ private fun CollectionDetail(vm: AppViewModel, c: Coll, back: () -> Unit, openDe
     var confirmDelete by remember { mutableStateOf(false) }
     var rename by remember { mutableStateOf(false) }
     var hideSeen by rememberSaveable { mutableStateOf(false) }
+    var actor by rememberSaveable(c.id) { mutableStateOf(0) }
+    // Ältere Sammlungen einmalig um Darsteller & Regie ergänzen
+    LaunchedEffect(c.id) { if (c.version < 2) vm.refreshCollection(c, quiet = true) }
     val films = c.items.filter { it.key != "-" }
+    val leads = if (c.role.isBlank()) emptyList() else films.map { it.lead }.filter { it.isNotBlank() }.distinct()
     val mine = films.count { vm.libraryTitle(it, titles)?.isWatched(uid) == true }
     val nextWd = films.firstOrNull { vm.libraryTitle(it, titles)?.isWatched(uid) != true }?.wd
 
@@ -174,6 +180,7 @@ private fun CollectionDetail(vm: AppViewModel, c: Coll, back: () -> Unit, openDe
             Column(Modifier.weight(1f)) {
                 Text(c.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text("$mine von ${films.size} gesehen · chronologisch", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (c.role.isNotBlank()) Text("🎭 ${c.role} – gespielt von ${leads.size} Darstellern", style = MaterialTheme.typography.labelMedium, color = Gold)
             }
             Box {
                 IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, "Mehr") }
@@ -185,9 +192,29 @@ private fun CollectionDetail(vm: AppViewModel, c: Coll, back: () -> Unit, openDe
                 }
             }
         }
-        val shown = films.withIndex().filter { !hideSeen || vm.libraryTitle(it.value, titles)?.isWatched(uid) != true }
+        if (leads.size >= 2) ChipRow(
+            listOf("Alle") + leads.map { l -> "$l (${films.count { it.lead == l }})" }, actor.coerceAtMost(leads.size), { actor = it }
+        )
+        val shown = films.withIndex()
+            .filter { !hideSeen || vm.libraryTitle(it.value, titles)?.isWatched(uid) != true }
+            .filter { actor == 0 || actor > leads.size || it.value.lead == leads[actor - 1] }
         LazyColumn(contentPadding = PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(shown, key = { it.value.wd }) { (i, f) ->
+            itemsIndexed(shown, key = { _, it -> it.value.wd }) { pos, (i, f) ->
+                // Neuer Abschnitt, sobald ein anderer Darsteller die Hauptfigur spielt
+                val prevLead = shown.getOrNull(pos - 1)?.value?.lead
+                if (c.role.isNotBlank() && f.lead.isNotBlank() && f.lead != prevLead) {
+                    val era = films.filter { it.lead == f.lead }
+                    Column(Modifier.fillMaxWidth().padding(top = if (pos == 0) 0.dp else 10.dp, bottom = 4.dp)) {
+                        Text("🎭 ${c.role}: ${f.lead}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Gold)
+                        Text(
+                            "${era.size} ${if (era.size == 1) "Film" else "Filme"} · ${era.first().year}" + (if (era.last().year != era.first().year) "–${era.last().year}" else ""),
+                            style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                } else if (c.role.isNotBlank() && f.lead.isBlank() && prevLead?.isNotBlank() == true) {
+                    Text("Außerhalb der Reihe", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 10.dp, bottom = 4.dp))
+                }
                 val t = vm.libraryTitle(f, titles)
                 val seenMe = t?.isWatched(uid) == true
                 val seenPartner = partner != null && t?.isWatched(partner) == true
@@ -206,7 +233,11 @@ private fun CollectionDetail(vm: AppViewModel, c: Coll, back: () -> Unit, openDe
                         Column(Modifier.weight(1f)) {
                             Text(f.title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis,
                                 color = if (seenMe) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface)
-                            Text(f.year.ifBlank { "Jahr unbekannt" }, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                f.year.ifBlank { "Jahr unbekannt" } + (if (f.director.isNotBlank()) " · Regie: ${f.director}" else ""),
+                                style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis
+                            )
+                            if (f.note.isNotBlank()) Text("⚠ ${f.note}", style = MaterialTheme.typography.labelSmall, color = Color(0xFFFF9E80))
                             if (isNext) Text("▶ Als Nächstes", style = MaterialTheme.typography.labelSmall, color = Gold)
                             if (seenPartner) Text("✓ ${hh?.nameOf(partner)} hat ihn gesehen", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
