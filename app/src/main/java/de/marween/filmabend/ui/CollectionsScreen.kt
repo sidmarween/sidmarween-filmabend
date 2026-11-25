@@ -370,11 +370,15 @@ private fun ImportListDialog(vm: AppViewModel, start: String, onClose: () -> Uni
     val startUrl = Regex("https?://\\S+").find(start)?.value
     var input by remember { mutableStateOf(startUrl ?: start) }
     var name by remember { mutableStateOf("") }
-    var items by remember { mutableStateOf<List<CollItem>>(emptyList()) }
-    var off by remember { mutableStateOf(setOf<String>()) }
+    var parsed by remember { mutableStateOf<de.marween.filmabend.ListImporter.Parsed?>(null) }
+    var off by remember { mutableStateOf(setOf<String>()) }        // abgewählte Filme
+    var offSec by remember { mutableStateOf(setOf<Int>()) }         // abgewählte Teil-Listen
+    var separate by remember { mutableStateOf(true) }
     var byYear by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    val sections = parsed?.sections.orEmpty()
+    val multi = sections.size > 1
 
     fun read() {
         if (input.isBlank()) return
@@ -386,55 +390,95 @@ private fun ImportListDialog(vm: AppViewModel, start: String, onClose: () -> Uni
                 else de.marween.filmabend.ListImporter.fromText(t)
             }
             r.onSuccess {
-                items = it.items; off = emptySet()
+                off = emptySet(); offSec = emptySet()
                 if (name.isBlank()) name = it.name.take(60)
                 if (it.items.isEmpty()) error = "Auf der Seite wurde keine Filmliste erkannt. Tipp: Auf der Webseite die Liste markieren, kopieren und hier als Text einfügen."
+                else parsed = it
             }.onFailure { error = "Konnte nicht gelesen werden: ${it.localizedMessage}" }
             busy = false
         }
     }
     LaunchedEffect(Unit) { if (startUrl != null) read() }
 
-    val chosen = items.filter { it.wd !in off }.let { l -> if (byYear) l.sortedBy { it.year.ifBlank { "9999" } } else l }
+    fun pick(sec: de.marween.filmabend.ListImporter.Section) =
+        sec.items.filter { it.wd !in off }.let { l -> if (byYear) l.sortedBy { it.year.ifBlank { "9999" } } else l }
+    val chosenSecs = sections.withIndex().filter { it.index !in offSec }
+    val total = chosenSecs.sumOf { pick(it.value).size }
+
     AlertDialog(
         onDismissRequest = { if (!busy) onClose() },
         title = { Text("Liste einlesen") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (items.isEmpty()) {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                if (parsed == null) {
                     Text("Adresse einer Webseite mit einer Filmliste einfügen – oder die Liste selbst (eine Zeile pro Film, gern mit Jahr). Du kannst Webseiten auch direkt aus dem Browser über „Teilen“ → Filmabend schicken.",
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     OutlinedTextField(input, { input = it }, placeholder = { Text("https://… oder Liste") }, maxLines = 6, modifier = Modifier.fillMaxWidth())
                 } else {
-                    OutlinedTextField(name, { name = it }, singleLine = true, label = { Text("Name der Sammlung") }, modifier = Modifier.fillMaxWidth())
+                    if (multi) {
+                        Text("Auf der Seite stehen ${sections.size} Listen. Wähle aus, welche du möchtest:",
+                            style = MaterialTheme.typography.bodySmall, color = Gold)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            androidx.compose.material3.Checkbox(separate, { separate = it })
+                            Text("Jede Liste als eigene Sammlung", style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                    if (!multi || !separate) OutlinedTextField(name, { name = it }, singleLine = true, label = { Text("Name der Sammlung") }, modifier = Modifier.fillMaxWidth())
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         androidx.compose.material3.Checkbox(byYear, { byYear = it })
                         Text("Nach Erscheinungsjahr sortieren", style = MaterialTheme.typography.bodySmall)
                     }
-                    Text("${chosen.size} von ${items.size} Filmen ausgewählt – Haken entfernen, was nicht dazugehört:",
-                        style = MaterialTheme.typography.labelMedium, color = Gold)
-                    LazyColumn(Modifier.heightIn(max = 300.dp)) {
-                        itemsIndexed(items, key = { _, it -> it.wd }) { i, it ->
-                            Row(Modifier.fillMaxWidth().clickable { off = if (it.wd in off) off - it.wd else off + it.wd }, verticalAlignment = Alignment.CenterVertically) {
-                                androidx.compose.material3.Checkbox(it.wd !in off, { v -> off = if (v) off - it.wd else off + it.wd })
-                                Text("${i + 1}. ${it.title}" + (if (it.year.isNotBlank()) " (${it.year})" else ""), style = MaterialTheme.typography.bodySmall, maxLines = 2)
+                    LazyColumn(Modifier.heightIn(max = 320.dp)) {
+                        sections.forEachIndexed { si, sec ->
+                            val secOn = si !in offSec
+                            if (multi) item(key = "h$si") {
+                                Row(
+                                    Modifier.fillMaxWidth().padding(top = 6.dp)
+                                        .background(Gold.copy(alpha = 0.12f), RoundedCornerShape(8.dp))
+                                        .clickable { offSec = if (secOn) offSec + si else offSec - si },
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    androidx.compose.material3.Checkbox(secOn, { v -> offSec = if (v) offSec - si else offSec + si })
+                                    Column(Modifier.weight(1f)) {
+                                        Text(sec.title.ifBlank { "Liste ${si + 1}" }, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, maxLines = 2)
+                                        Text("${sec.items.size} Filme · ${sec.items.firstOrNull()?.year ?: ""}–${sec.items.lastOrNull()?.year ?: ""}",
+                                            style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
+                            }
+                            if (secOn) itemsIndexed(sec.items, key = { _, it -> it.wd }) { i, it ->
+                                Row(Modifier.fillMaxWidth().clickable { off = if (it.wd in off) off - it.wd else off + it.wd }, verticalAlignment = Alignment.CenterVertically) {
+                                    androidx.compose.material3.Checkbox(it.wd !in off, { v -> off = if (v) off - it.wd else off + it.wd })
+                                    Text("${i + 1}. ${it.title}" + (if (it.year.isNotBlank()) " (${it.year})" else ""), style = MaterialTheme.typography.bodySmall, maxLines = 2)
+                                }
                             }
                         }
                     }
+                    Text(
+                        if (multi && separate) "$total Filme in ${chosenSecs.size} Sammlungen" else "$total Filme ausgewählt",
+                        style = MaterialTheme.typography.labelMedium, color = Gold
+                    )
                 }
                 if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
                 error?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
             }
         },
         confirmButton = {
-            if (items.isEmpty()) TextButton(onClick = { read() }, enabled = !busy && input.isNotBlank()) { Text("Einlesen") }
+            if (parsed == null) TextButton(onClick = { read() }, enabled = !busy && input.isNotBlank()) { Text("Einlesen") }
             else TextButton(onClick = {
                 busy = true
-                vm.createImportedCollection(name.ifBlank { "Meine Liste" }, chosen) { ok -> busy = false; if (ok) onClose() }
-            }, enabled = !busy && chosen.isNotEmpty()) { Text("Sammlung anlegen") }
+                val jobs = if (multi && separate)
+                    chosenSecs.map { (si, sec) -> sec.title.ifBlank { "${name.ifBlank { "Liste" }} ${si + 1}" } to pick(sec) }.filter { it.second.isNotEmpty() }
+                else listOf(name.ifBlank { "Meine Liste" } to chosenSecs.flatMap { pick(it.value) }.distinctBy { de.marween.filmabend.normName(it.title) + it.year })
+                var left = jobs.size
+                var allOk = true
+                jobs.forEach { (n, l) ->
+                    vm.createImportedCollection(n, l) { ok -> allOk = allOk && ok; left--; if (left == 0) { busy = false; if (allOk) onClose() } }
+                }
+            }, enabled = !busy && total > 0) { Text(if (multi && separate && chosenSecs.size > 1) "Sammlungen anlegen" else "Sammlung anlegen") }
         },
         dismissButton = {
-            if (items.isNotEmpty()) TextButton(onClick = { items = emptyList(); error = null }, enabled = !busy) { Text("Zurück") }
+            if (parsed != null) TextButton(onClick = { parsed = null; error = null }, enabled = !busy) { Text("Zurück") }
             else TextButton(onClick = onClose, enabled = !busy) { Text("Abbrechen") }
         }
     )

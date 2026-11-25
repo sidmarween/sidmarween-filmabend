@@ -191,7 +191,11 @@ object Wikidata {
  * „1. Schneewittchen und die sieben Zwerge (1937)“, „Bambi – 1942“ oder „1940: Pinocchio“.
  */
 object ListImporter {
-    data class Parsed(val name: String, val items: List<CollItem>)
+    /** Eine Webseite kann mehrere Listen enthalten (z. B. Zeichentrick, Realverfilmungen …). */
+    data class Section(val title: String, val items: List<CollItem>)
+    data class Parsed(val name: String, val sections: List<Section>) {
+        val items get() = sections.flatMap { it.items }
+    }
 
     private val yearRx = "(?:18[89]\\d|19\\d{2}|20[0-3]\\d)"
     private val patterns = listOf(
@@ -221,15 +225,30 @@ object ListImporter {
         val title = Regex("<title[^>]*>(.*?)</title>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
             .find(raw)?.groupValues?.get(1)?.let { text(it) }?.substringBefore(" | ")?.substringBefore(" - ")?.trim() ?: ""
         val html = raw.replace(Regex("<(script|style|noscript|svg|nav|footer|header)[^>]*>.*?</\\1>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)), " ")
-        // Inhalt der typischen Listen-Bausteine (Überschriften, Aufzählungen, Tabellen, Absätze)
-        val blocks = Regex("<(h[1-6]|li|td|th|p|dt|dd|strong|b)\\b[^>]*>(.*?)</\\1>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
-            .findAll(html).map { text(it.groupValues[2]) }
-            .flatMap { it.split('\n').asSequence() }
-            .map { it.trim() }.filter { it.length in 2..140 }.toList()
-        return Parsed(title, parseLines(blocks, allowNoYear = false))
+        // Inhalt der typischen Listen-Bausteine (Überschriften, Aufzählungen, Tabellen, Absätze).
+        // Überschriften ohne Film darin beginnen eine neue Teil-Liste.
+        val sections = ArrayList<Pair<String, MutableList<String>>>()
+        var current = "" to mutableListOf<String>()
+        sections += current
+        Regex("<(h[1-6]|li|td|th|p|dt|dd|strong|b)\\b[^>]*>(.*?)</\\1>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
+            .findAll(html).forEach { m ->
+                val tag = m.groupValues[1].lowercase()
+                val txt = text(m.groupValues[2])
+                if (tag.startsWith("h") && tag.length == 2 && parseLines(listOf(txt), false).isEmpty()) {
+                    current = txt.take(80) to mutableListOf()
+                    sections += current
+                    return@forEach
+                }
+                txt.split('\n').map { it.trim() }.filter { it.length in 2..140 }.forEach { current.second += it }
+            }
+        val parsed = sections.map { (h, lines) -> Section(h, parseLines(lines, allowNoYear = false)) }
+            .filter { it.items.size >= 3 }
+            .mapIndexed { i, sec -> sec.copy(items = sec.items.map { it.copy(wd = "s${i}_" + it.wd) }) }
+        return Parsed(title, parsed)
     }
 
-    fun fromText(text: String): Parsed = Parsed("", parseLines(text.lines().map { it.trim() }.filter { it.isNotBlank() }, allowNoYear = true))
+    fun fromText(text: String): Parsed =
+        Parsed("", listOf(Section("", parseLines(text.lines().map { it.trim() }.filter { it.isNotBlank() }, allowNoYear = true))).filter { it.items.isNotEmpty() })
 
     private fun text(htmlPart: String): String =
         android.text.Html.fromHtml(htmlPart.replace(Regex("<br\\s*/?>", RegexOption.IGNORE_CASE), "\n"), android.text.Html.FROM_HTML_MODE_LEGACY)
