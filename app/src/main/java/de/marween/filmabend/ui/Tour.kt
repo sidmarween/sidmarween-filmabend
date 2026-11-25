@@ -89,6 +89,11 @@ private val steps = listOf(
         TiwiPose.Investigating, target = "search"
     ),
     TourStep(
+        "Sammlungen",
+        "Leg zu einem Stichwort eine Sammlung an – z. B. „James Bond“ oder „Disney“. Alle Filme stehen chronologisch da, und jeder hakt ab, was er schon gesehen hat.",
+        TiwiPose.Investigating, tab = 1, target = "nav1"
+    ),
+    TourStep(
         "Neu & Trailer",
         "Der Tipp des Tages aus dem Fernsehen, neue Filme und Serien mit deutschen Trailern, die Mediatheken von ARD, ZDF & Co., DVD-Neuheiten und „Heute im TV“ – das aktuelle Fernsehprogramm. Oben findest du ein Suchfeld, und mit 👎 lehnst du ab, was dir gar nicht gefällt.",
         TiwiPose.Surprised, tab = 2, target = "nav2"

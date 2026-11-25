@@ -45,6 +45,7 @@ import de.marween.filmabend.BuildConfig
 /** Änderungsliste – bei jeder neuen Version oben ergänzen. */
 private val changelog = listOf(
     "1.1" to listOf(
+        "Neu: Sammlungen – zu einem Stichwort (James Bond, Disney …) alle Filme chronologisch abhaken",
         "TV-Sendungen antippen zeigt den kompletten Programmtext; schmaleres Suchfeld unter „Neu“",
         "„Heute im TV“: das aktuelle Fernsehprogramm – Läuft jetzt, 20:15, Heute Abend, Morgen und „Für euch“",
         "Tipp des Tages jetzt aus dem echten TV-Programm (EPG) von ARD, ZDF, Dritten, RTL, SAT.1, ProSieben, VOX & Co. – nur was heute läuft",

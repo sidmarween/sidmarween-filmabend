@@ -19,6 +19,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.CollectionsBookmark
 import androidx.compose.material.icons.filled.Leaderboard
 import androidx.compose.material.icons.filled.Mail
 import androidx.compose.material.icons.filled.Movie
@@ -120,7 +121,7 @@ private fun MainShell(vm: AppViewModel, tab: Int, setTab: (Int) -> Unit) {
                     TopAppBar(
                         title = {
                             Text(
-                                listOf("Unsere Filme & Serien", "Entdecken", "Neu & Trailer", "Unsere Charts", "Post")[tab],
+                                listOf("Unsere Filme & Serien", "Sammlungen", "Neu & Trailer", "Unsere Charts", "Post")[tab],
                                 fontWeight = FontWeight.Bold
                             )
                         },
@@ -135,6 +136,7 @@ private fun MainShell(vm: AppViewModel, tab: Int, setTab: (Int) -> Unit) {
                 bottomBar = {
                     NavigationBar {
                         NavigationBarItem(tab == 0, { setTab(0) }, { Icon(Icons.Filled.VideoLibrary, null) }, label = { Text("Bibliothek") }, modifier = Modifier.tourTarget("nav0"))
+                        NavigationBarItem(tab == 1, { setTab(1) }, { Icon(Icons.Filled.CollectionsBookmark, null) }, label = { Text("Sammlungen") }, modifier = Modifier.tourTarget("nav1"))
                         NavigationBarItem(tab == 2, { setTab(2) }, { Icon(Icons.Filled.Movie, null) }, label = { Text("Neu") }, modifier = Modifier.tourTarget("nav2"))
                         NavigationBarItem(tab == 3, { setTab(3) }, { Icon(Icons.Filled.Leaderboard, null) }, label = { Text("Charts") }, modifier = Modifier.tourTarget("nav3"))
                         NavigationBarItem(tab == 4, { setTab(4) }, {
@@ -147,7 +149,7 @@ private fun MainShell(vm: AppViewModel, tab: Int, setTab: (Int) -> Unit) {
                     val openDetail: (String, Int) -> Unit = { t, id -> open(Screen.Detail(t, id)) }
                     when (tab) {
                         0 -> LibraryScreen(vm, openDetail) { open(Screen.Search) }
-                        1 -> LaunchedEffect(Unit) { setTab(0) } // „Entdecken“ gibt es nicht mehr
+                        1 -> CollectionsScreen(vm, openDetail)
                         2 -> NewScreen(vm, openDetail)
                         3 -> ChartsScreen(vm, openDetail)
                         else -> PostScreen(vm, openDetail)

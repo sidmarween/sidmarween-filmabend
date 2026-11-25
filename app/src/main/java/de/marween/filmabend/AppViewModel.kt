@@ -70,6 +70,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val household = MutableStateFlow<Household?>(null)
     val titles = MutableStateFlow<List<Title>>(emptyList())
     val suggestions = MutableStateFlow<List<Suggestion>>(emptyList())
+    /** Sammlungen (z. B. „James Bond“, „Disney“) – für beide sichtbar */
+    val collections = MutableStateFlow<List<Coll>>(emptyList())
     val recs = MutableStateFlow(RecState())
     val genreList = MutableStateFlow(RecState())
     private var genreLoaded: String? = null
@@ -155,6 +157,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 val noPic = q.documents.filter { (it.getString("poster") ?: "").isBlank() && it.getBoolean("posterChecked") != true }
                 if (noPic.isNotEmpty()) fillMissingPosters()
             }
+        }
+        hhRegs += ref.collection("collections").addSnapshotListener { q, e ->
+            if (e != null) return@addSnapshotListener
+            if (q != null) collections.value = q.documents.mapNotNull { Coll.from(it) }.sortedByDescending { it.createdAt }
         }
         hhRegs += ref.collection("suggestions").addSnapshotListener { q, e ->
             if (e != null) { retryHousehold(hid, e); return@addSnapshotListener }
@@ -295,6 +301,81 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         )
         if (value) ch["watchlist"] = mapOf(u to FieldValue.delete())
         write(i, ch)
+    }
+
+    // ---------------- Sammlungen ----------------
+
+    /** Neue Sammlung aus einer Reihe / einem Studio anlegen (Filme chronologisch). */
+    fun createCollection(hit: WdHit, name: String, done: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val ref = hhRef() ?: throw IllegalStateException("Keine gemeinsame Liste")
+                val films = Wikidata.films(hit.id)
+                if (films.isEmpty()) { message.value = "Zu „${hit.label}“ wurden keine Filme gefunden – probier einen anderen Treffer."; done(false); return@launch }
+                ref.collection("collections").add(mapOf(
+                    "name" to name.ifBlank { hit.label }, "source" to hit.id,
+                    "items" to films.map { it.toMap() }, "createdAt" to System.currentTimeMillis(), "by" to uid.value,
+                )).await()
+                message.value = "Sammlung „${name.ifBlank { hit.label }}“ mit ${films.size} Filmen angelegt"
+                done(true)
+            } catch (e: Exception) {
+                message.value = "Sammlung konnte nicht angelegt werden: ${e.localizedMessage}"
+                done(false)
+            }
+        }
+    }
+
+    /** Filmliste neu von Wikidata holen (neue Filme kommen dazu, Abgehakte bleiben). */
+    fun refreshCollection(c: Coll) = run {
+        val ref = hhRef() ?: return@run
+        val keys = c.items.associate { it.wd to it.key }
+        val removed = c.items.filter { it.key == "-" }.map { it.wd }.toSet()
+        val films = Wikidata.films(c.source).map { it.copy(key = keys[it.wd] ?: "") }
+            .filterNot { it.wd in removed } + c.items.filter { it.wd in removed }
+        ref.collection("collections").document(c.id).update("items", films.map { it.toMap() }).await()
+        message.value = "„${c.name}“ aktualisiert – ${films.count { it.key != "-" }} Filme"
+    }
+
+    fun deleteCollection(c: Coll) = run { hhRef()?.collection("collections")?.document(c.id)?.delete()?.await() }
+
+    fun renameCollection(c: Coll, name: String) = run {
+        hhRef()?.collection("collections")?.document(c.id)?.update("name", name.trim())?.await()
+    }
+
+    /** Film aus der Sammlung entfernen (wird als „-“ markiert, damit er beim Aktualisieren nicht wiederkommt). */
+    fun removeFromCollection(c: Coll, item: CollItem) = run {
+        val items = c.items.map { if (it.wd == item.wd) it.copy(key = "-") else it }
+        hhRef()?.collection("collections")?.document(c.id)?.update("items", items.map { it.toMap() })?.await()
+    }
+
+    /** Der Bibliothekseintrag zu einem Sammlungsfilm (falls schon vorhanden). */
+    fun libraryTitle(item: CollItem, all: List<Title>): Title? =
+        all.firstOrNull { it.key == item.key }
+            ?: all.firstOrNull { it.type == "movie" && normName(it.title) == normName(item.title) && (item.year.isBlank() || it.year.isBlank() || kotlin.math.abs((it.year.take(4).toIntOrNull() ?: 0) - (item.year.toIntOrNull() ?: 0)) <= 1) }
+
+    /** Abhaken / Haken entfernen – landet ganz normal in der Bibliothek. */
+    fun toggleCollectionWatched(c: Coll, item: CollItem) = run {
+        val u = uid.value ?: return@run
+        val known = libraryTitle(item, titles.value)
+        if (known != null) {
+            setWatched(known.info, !known.isWatched(u))
+            if (item.key != known.key) saveCollKey(c, item, known.key)
+            return@run
+        }
+        val y = item.year.toIntOrNull()
+        val hits = runCatching { Catalog.search(item.title) }.getOrDefault(emptyList()).filter { it.type == "movie" }
+        val hit = hits.firstOrNull { y != null && kotlin.math.abs((it.year.take(4).toIntOrNull() ?: 0) - y) <= 1 && normName(it.title) == normName(item.title) }
+            ?: hits.firstOrNull { y != null && kotlin.math.abs((it.year.take(4).toIntOrNull() ?: 0) - y) <= 1 }
+            ?: hits.firstOrNull { normName(it.title) == normName(item.title) }
+        val info = hit?.info ?: freeItem(item.title, "movie").info.copy(year = item.year)
+        setWatched(info, true)
+        saveCollKey(c, item, hit?.key ?: keyOf("movie", info.mediaId))
+    }
+
+    private suspend fun saveCollKey(c: Coll, item: CollItem, key: String) {
+        val fresh = collections.value.firstOrNull { it.id == c.id } ?: c
+        val items = fresh.items.map { if (it.wd == item.wd) it.copy(key = key) else it }
+        hhRef()?.collection("collections")?.document(c.id)?.update("items", items.map { it.toMap() })?.await()
     }
 
     fun setWatchlist(i: TitleInfo, value: Boolean) {
