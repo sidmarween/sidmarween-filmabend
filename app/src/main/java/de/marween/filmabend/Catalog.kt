@@ -51,7 +51,18 @@ data class CatalogDetail(
     val info get() = item.info.copy(genres = genres, seasons = seasons)
 }
 
-fun normName(s: String) = s.lowercase().replace(Regex("[^a-z0-9äöüß]"), "")
+/**
+ * Vereinfachter Name zum Vergleichen („Der Pate – Teil 2“ → „derpateteil2“).
+ * Wird sehr oft aufgerufen – deshalb ohne Regex, Zeichen für Zeichen.
+ */
+fun normName(s: String): String {
+    val sb = StringBuilder(s.length)
+    for (c0 in s) {
+        val c = c0.lowercaseChar()
+        if (c in 'a'..'z' || c in '0'..'9' || c == 'ä' || c == 'ö' || c == 'ü' || c == 'ß') sb.append(c)
+    }
+    return sb.toString()
+}
 
 object Catalog {
 

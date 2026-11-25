@@ -354,10 +354,26 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         hhRef()?.collection("collections")?.document(c.id)?.update("items", items.map { it.toMap() })?.await()
     }
 
+    /** Schnelles Nachschlagen in der Bibliothek (nach Schlüssel und Name) – einmal pro Änderung gebaut. */
+    class LibIndex(all: List<Title>) {
+        val byKey: Map<String, Title> = all.associateBy { it.key }
+        val byName: Map<String, List<Title>> = all.filter { it.type == "movie" }.groupBy { normName(it.title) }
+    }
+    @Volatile private var libIdx: Pair<List<Title>, LibIndex>? = null
+    fun libIndex(all: List<Title>): LibIndex {
+        libIdx?.let { (l, i) -> if (l === all) return i }
+        return LibIndex(all).also { libIdx = all to it }
+    }
+
     /** Der Bibliothekseintrag zu einem Sammlungsfilm (falls schon vorhanden). */
-    fun libraryTitle(item: CollItem, all: List<Title>): Title? =
-        all.firstOrNull { it.key == item.key }
-            ?: all.firstOrNull { it.type == "movie" && normName(it.title) == normName(item.title) && (item.year.isBlank() || it.year.isBlank() || kotlin.math.abs((it.year.take(4).toIntOrNull() ?: 0) - (item.year.toIntOrNull() ?: 0)) <= 1) }
+    fun libraryTitle(item: CollItem, all: List<Title>): Title? {
+        val idx = libIndex(all)
+        if (item.key.isNotBlank()) idx.byKey[item.key]?.let { return it }
+        val y = item.year.toIntOrNull() ?: 0
+        return idx.byName[normName(item.title)]?.firstOrNull {
+            item.year.isBlank() || it.year.isBlank() || kotlin.math.abs((it.year.take(4).toIntOrNull() ?: 0) - y) <= 1
+        }
+    }
 
     /** Abhaken / Haken entfernen – landet ganz normal in der Bibliothek. */
     fun toggleCollectionWatched(c: Coll, item: CollItem) = run {

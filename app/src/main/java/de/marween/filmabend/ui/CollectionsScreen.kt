@@ -65,6 +65,7 @@ import de.marween.filmabend.PosterFinder
 import de.marween.filmabend.WdHit
 import de.marween.filmabend.Wikidata
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.withPermit
 
 /**
  * Sammlungen: zu einem Stichwort (z. B. „James Bond“, „Disney“) alle Filme
@@ -98,10 +99,13 @@ fun CollectionsScreen(vm: AppViewModel, openDetail: (String, Int) -> Unit) {
             val partner = hh?.partnerOf(uid)
             LazyColumn(contentPadding = PaddingValues(12.dp, 12.dp, 12.dp, 96.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 items(colls, key = { it.id }) { c ->
-                    val films = c.items.filter { it.key != "-" }
-                    val mine = films.count { vm.libraryTitle(it, titles)?.isWatched(uid) == true }
-                    val theirs = films.count { vm.libraryTitle(it, titles)?.isWatched(partner) == true }
-                    val next = films.firstOrNull { vm.libraryTitle(it, titles)?.isWatched(uid) != true }
+                    val films = remember(c.items) { c.items.filter { it.key != "-" } }
+                    val stats = remember(films, titles, uid, partner) {
+                        val t = films.map { vm.libraryTitle(it, titles) }
+                        Triple(t.count { it?.isWatched(uid) == true }, t.count { it?.isWatched(partner) == true },
+                            films.getOrNull(t.indexOfFirst { it?.isWatched(uid) != true }))
+                    }
+                    val (mine, theirs, next) = stats
                     Card(
                         colors = CardDefaults.cardColors(containerColor = CardBg),
                         modifier = Modifier.fillMaxWidth().clickable { openId = c.id }
@@ -144,14 +148,20 @@ private fun Progress(who: String, n: Int, total: Int) {
 }
 
 /** Poster eines Sammlungsfilms: aus der Bibliothek, sonst nachgesucht. */
+private val posterGate = kotlinx.coroutines.sync.Semaphore(3)
+private val posterCache = java.util.concurrent.ConcurrentHashMap<String, String>()
+
 @Composable
-private fun CollPoster(vm: AppViewModel, item: CollItem?, modifier: Modifier) {
-    val titles by vm.titles.collectAsStateWithLifecycle()
-    val known = item?.let { vm.libraryTitle(it, titles) }
-    var poster by remember(item?.wd) { mutableStateOf<String?>(null) }
-    LaunchedEffect(item?.wd, known?.poster) {
-        poster = known?.poster?.takeIf { it.isNotBlank() }
-            ?: item?.let { runCatching { PosterFinder.find(it.title, "movie") }.getOrNull() }
+private fun CollPoster(vm: AppViewModel, item: CollItem?, modifier: Modifier, known: de.marween.filmabend.Title? = null) {
+    val fromLib = known?.poster?.takeIf { it.isNotBlank() }
+    var poster by remember(item?.wd) { mutableStateOf(fromLib ?: item?.let { posterCache[it.wd] }?.ifEmpty { null }) }
+    LaunchedEffect(item?.wd, fromLib) {
+        if (fromLib != null) { poster = fromLib; return@LaunchedEffect }
+        if (item == null || posterCache.containsKey(item.wd)) return@LaunchedEffect
+        kotlinx.coroutines.delay(150) // beim schnellen Scrollen nicht für jede Zeile suchen
+        val p = posterGate.withPermit { runCatching { PosterFinder.find(item.title, "movie") }.getOrNull() }
+        posterCache[item.wd] = p ?: ""
+        poster = p
     }
     Poster(poster, "movie", modifier, corner = 8.dp)
 }
@@ -169,10 +179,12 @@ private fun CollectionDetail(vm: AppViewModel, c: Coll, back: () -> Unit, openDe
     var actor by rememberSaveable(c.id) { mutableStateOf(0) }
     // Ältere Sammlungen einmalig um Darsteller & Regie ergänzen
     LaunchedEffect(c.id) { if (c.version < 2) vm.refreshCollection(c, quiet = true) }
-    val films = c.items.filter { it.key != "-" }
-    val leads = if (c.role.isBlank()) emptyList() else films.map { it.lead }.filter { it.isNotBlank() }.distinct()
-    val mine = films.count { vm.libraryTitle(it, titles)?.isWatched(uid) == true }
-    val nextWd = films.firstOrNull { vm.libraryTitle(it, titles)?.isWatched(uid) != true }?.wd
+    val films = remember(c.items) { c.items.filter { it.key != "-" } }
+    val leads = remember(films, c.role) { if (c.role.isBlank()) emptyList() else films.map { it.lead }.filter { it.isNotBlank() }.distinct() }
+    // Bibliothekseinträge einmal pro Änderung nachschlagen (nicht bei jedem Neuzeichnen)
+    val lib = remember(films, titles) { films.associate { it.wd to vm.libraryTitle(it, titles) } }
+    val mine = remember(lib, uid) { films.count { lib[it.wd]?.isWatched(uid) == true } }
+    val nextWd = remember(lib, uid) { films.firstOrNull { lib[it.wd]?.isWatched(uid) != true }?.wd }
 
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -195,15 +207,17 @@ private fun CollectionDetail(vm: AppViewModel, c: Coll, back: () -> Unit, openDe
         if (leads.size >= 2) ChipRow(
             listOf("Alle") + leads.map { l -> "$l (${films.count { it.lead == l }})" }, actor.coerceAtMost(leads.size), { actor = it }
         )
-        val shown = films.withIndex()
-            .filter { !hideSeen || vm.libraryTitle(it.value, titles)?.isWatched(uid) != true }
-            .filter { actor == 0 || actor > leads.size || it.value.lead == leads[actor - 1] }
+        val shown = remember(films, lib, hideSeen, actor, leads, uid) {
+            films.withIndex()
+                .filter { !hideSeen || lib[it.value.wd]?.isWatched(uid) != true }
+                .filter { actor == 0 || actor > leads.size || it.value.lead == leads[actor - 1] }
+        }
         LazyColumn(contentPadding = PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             itemsIndexed(shown, key = { _, it -> it.value.wd }) { pos, (i, f) ->
                 // Neuer Abschnitt, sobald ein anderer Darsteller die Hauptfigur spielt
                 val prevLead = shown.getOrNull(pos - 1)?.value?.lead
                 if (c.role.isNotBlank() && f.lead.isNotBlank() && f.lead != prevLead) {
-                    val era = films.filter { it.lead == f.lead }
+                    val era = remember(films, f.lead) { films.filter { it.lead == f.lead } }
                     Column(Modifier.fillMaxWidth().padding(top = if (pos == 0) 0.dp else 10.dp, bottom = 4.dp)) {
                         Text("🎭 ${c.role}: ${f.lead}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Gold)
                         Text(
@@ -215,7 +229,7 @@ private fun CollectionDetail(vm: AppViewModel, c: Coll, back: () -> Unit, openDe
                     Text("Außerhalb der Reihe", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 10.dp, bottom = 4.dp))
                 }
-                val t = vm.libraryTitle(f, titles)
+                val t = lib[f.wd]
                 val seenMe = t?.isWatched(uid) == true
                 val seenPartner = partner != null && t?.isWatched(partner) == true
                 var itemMenu by remember { mutableStateOf(false) }
@@ -229,7 +243,7 @@ private fun CollectionDetail(vm: AppViewModel, c: Coll, back: () -> Unit, openDe
                 ) {
                     Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         Text("${i + 1}", style = MaterialTheme.typography.titleMedium, color = Gold, fontWeight = FontWeight.Bold, modifier = Modifier.width(30.dp))
-                        CollPoster(vm, f, Modifier.width(48.dp))
+                        CollPoster(vm, f, Modifier.width(48.dp), t)
                         Column(Modifier.weight(1f)) {
                             Text(f.title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis,
                                 color = if (seenMe) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface)

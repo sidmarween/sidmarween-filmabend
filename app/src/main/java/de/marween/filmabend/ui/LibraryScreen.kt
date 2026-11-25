@@ -45,16 +45,17 @@ fun LibraryScreen(vm: AppViewModel, openDetail: (String, Int) -> Unit, openSearc
     var type by rememberSaveable { mutableIntStateOf(0) }
     val whoOptions = listOf("💑 Zusammen gucken", "✓ Von mir gesehen", "✓ Von $pName gesehen", "✓ Gemeinsam gesehen", "Merkliste")
 
-    val list = titles.filter { typeMatches(type, it.type) }.let { all ->
+    val list = androidx.compose.runtime.remember(titles, type, who, uid, partner) { titles.filter { typeMatches(type, it.type) }.let { all ->
         when (who) {
-            0 -> all.filter { it.together && !it.isWatched(uid) && !it.isWatched(partner) } // gesehen = raus aus „Zusammen gucken“.sortedByDescending { it.addedAt }
+            // gesehen = raus aus „Zusammen gucken“
+            0 -> all.filter { it.together && !it.isWatched(uid) && !it.isWatched(partner) }.sortedByDescending { it.addedAt }
             1 -> all.filter { it.isWatched(uid) }.sortedByDescending { it.watchedAt[uid] ?: 0L }
             2 -> all.filter { it.isWatched(partner) }.sortedByDescending { it.watchedAt[partner] ?: 0L }
             3 -> all.filter { it.isWatched(uid) && it.isWatched(partner) }
                 .sortedByDescending { maxOf(it.watchedAt[uid] ?: 0L, it.watchedAt[partner] ?: 0L) }
             else -> all.filter { it.onWatchlist(uid) || it.onWatchlist(partner) }.sortedByDescending { it.addedAt }
         }
-    }
+    } }
 
     Column(Modifier.fillMaxSize()) {
         if (!waDone) {
